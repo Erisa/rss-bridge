@@ -14,11 +14,11 @@ class TwitterV2Bridge extends BridgeAbstract
 	<a href="https://rss-bridge.github.io/rss-bridge/Bridge_Specific/TwitterV2.html">
 	Configuration Instructions</a>.';
     const MAINTAINER = 'quickwick';
-    const CONFIGURATION = [
-        'twitterv2apitoken' => [
-            'required' => true,
-        ]
-    ];
+    // const CONFIGURATION = [
+    //     'twitterv2apitoken' => [
+    //         'required' => true,
+    //     ]
+    // ];
     const PARAMETERS = [
         'global' => [
             'filter' => [
@@ -170,8 +170,8 @@ EOD
         $idAsTitle = $this->getInput('idastitle');
         $onlyMediaTweets = $this->getInput('imgonly');
 
-        // Read API token from config.ini.php, put into Header
-        $apiToken = $this->getOption('twitterv2apitoken');
+        // Read API token from env, put into Header
+        $apiToken = getenv('TWITTERV2_API_TOKEN');
         $authHeaders = [
             'authorization: Bearer ' . $apiToken,
         ];
