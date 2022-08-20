@@ -13,4 +13,3 @@ phpcs.xml
 phpcs.xml
 scalingo.json
 tests/*
-whitelist.txt
