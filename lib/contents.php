@@ -12,6 +12,7 @@ const RSSBRIDGE_HTTP_STATUS_CODES = [
     '205' => 'Reset Content',
     '206' => 'Partial Content',
     '300' => 'Multiple Choices',
+    '301' => 'Moved Permanently',
     '302' => 'Found',
     '303' => 'See Other',
     '304' => 'Not Modified',
@@ -124,6 +125,11 @@ function getContents(
             }
             $cache->saveData($result['body']);
             break;
+        case 301:
+        case 302:
+        case 303:
+            // todo: cache
+            break;
         case 304:
             // Not Modified
             $response['content'] = $cache->loadData();
@@ -131,7 +137,8 @@ function getContents(
         default:
             throw new HttpException(
                 sprintf(
-                    '%s %s',
+                    '%s resulted in `%s %s`',
+                    $url,
                     $result['code'],
                     RSSBRIDGE_HTTP_STATUS_CODES[$result['code']] ?? ''
                 ),
@@ -226,7 +233,13 @@ function _http_request(string $url, array $config = []): array
         }
         if ($attempts > $config['retries']) {
             // Finally give up
-            throw new HttpException(sprintf('%s (%s)', curl_error($ch), curl_errno($ch)));
+            throw new HttpException(sprintf(
+                'cURL error %s: %s (%s) for %s',
+                curl_error($ch),
+                curl_errno($ch),
+                'https://curl.haxx.se/libcurl/c/libcurl-errors.html',
+                $url
+            ));
         }
     }
 

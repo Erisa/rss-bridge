@@ -25,6 +25,8 @@ Check out RSS-Bridge right now on https://rss-bridge.org/bridge01 or find anothe
 
 ## Tutorial
 
+RSS-Bridge requires php 7.4.
+
 ### Install with git:
 
 ```bash
@@ -47,7 +49,7 @@ Example config for nginx:
 # /etc/nginx/sites-enabled/rssbridge
 server {
     listen 80;
-    # server_name example.com;
+    server_name example.com;
     root /var/www/rss-bridge;
     index index.php;
 
@@ -99,28 +101,53 @@ modify the `repository` in `scalingo.json`. See https://github.com/RSS-Bridge/rs
 Learn more in
 [Installation](https://rss-bridge.github.io/rss-bridge/For_Hosts/Installation.html).
 
-### Create a bridge
+### Create a new bridge from scratch
 
-Create the new bridge in `bridges/ExecuteBridge.php`:
+Create the new bridge in e.g. `bridges/BearBlogBridge.php`:
 
 ```php
 <?php
 
-class ExecuteBridge extends BridgeAbstract
+class BearBlogBridge extends BridgeAbstract
 {
-    const NAME = 'Execute Program Blog';
+    const NAME = 'BearBlog (bearblog.dev)';
 
     public function collectData()
     {
-        $url = 'https://www.executeprogram.com/api/pages/blog';
-        $data = json_decode(getContents($url));
+        // We can perform css selectors on $dom
+        $dom = getSimpleHTMLDOM('https://herman.bearblog.dev/blog/');
 
-        foreach ($data->posts as $post) {
-            $this->items[] = [
-                'uri'       => sprintf('https://www.executeprogram.com/blog/%s', $post->slug),
-                'title'     => $post->title,
-                'content'   => $post->body,
+        // An array of dom nodes
+        $blogPosts = $dom->find('.blog-posts li');
+
+        foreach ($blogPosts as $blogPost) {
+            // Select the anchor at index 0 (the first anchor found)
+            $a = $blogPost->find('a', 0);
+
+            // Select the inner text of the anchor
+            $title = $a->innertext;
+
+            // Select the href attribute of the anchor
+            $url = $a->href;
+
+            // Select the <time> tag
+            $time = $blogPost->find('time', 0);
+            // Create a \DateTime object from the datetime attribute
+            $createdAt = date_create_from_format('Y-m-d', $time->datetime);
+
+            $item = [
+                'title' => $title,
+                'author' => 'Herman',
+
+                // Prepend the url because $url is a relative path
+                'uri' => 'https://herman.bearblog.dev' . $url,
+
+                // Grab the unix timestamp
+                'timestamp' => $createdAt->getTimestamp(),
             ];
+
+            // Add the item to the list of items
+            $this->items[] = $item;
         }
     }
 }
@@ -132,7 +159,7 @@ Learn more in [bridge api](https://rss-bridge.github.io/rss-bridge/Bridge_API/in
 
 ### How to enable all bridges
 
-Write an asterisks in `whitelist.txt`:
+Write an asterisks to `whitelist.txt`:
 
     echo '*' > whitelist.txt
 

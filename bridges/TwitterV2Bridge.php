@@ -70,6 +70,11 @@ class TwitterV2Bridge extends BridgeAbstract
                 'type' => 'checkbox',
                 'title' => 'Activate to display original sized images (no thumbnails)'
             ],
+            'noexternallink' => [
+                'name' => 'Hide external link from content html',
+                'type' => 'checkbox',
+                'title' => 'Activate to hide the links from the content html field'
+            ],
             'idastitle' => [
                 'name' => 'Use tweet id as title',
                 'type' => 'checkbox',
@@ -363,16 +368,6 @@ EOD
                 continue;
             }
 
-            $cleanedTweet = nl2br($tweet->text);
-            //Debug::log('cleanedTweet: ' . $cleanedTweet);
-
-            // Perform optional keyword filtering (only keep tweet if keyword is found)
-            if (! empty($tweetFilter)) {
-                if (stripos($cleanedTweet, $this->getInput('filter')) === false) {
-                    continue;
-                }
-            }
-
             // Initialize empty array to hold feed item values
             $this->item = [];
 
@@ -434,7 +429,17 @@ EOD
                          . ' (@'
                          . $this->item['username'] . ')';
 
-            // (Optional) Skip non-media tweet
+            $cleanedTweet = nl2br($tweet->text);
+            //Debug::log('cleanedTweet: ' . $cleanedTweet);
+
+            // Perform optional keyword filtering (only keep tweet if keyword is found)
+            if (! empty($tweetFilter)) {
+                if (stripos($cleanedTweet, $this->getInput('filter')) === false) {
+                    continue;
+                }
+            }
+
+            // Perform optional non-media tweet skip
             // This check must wait until after retweets are identified
             if (
                 $onlyMediaTweets && !isset($tweet->attachments->media_keys) &&
@@ -458,13 +463,35 @@ EOD
                 $titleText = strip_tags($cleanedTweet);
             }
 
-            if ($isRetweet && substr($titleText, 0, 4) === 'RT @') {
-                $titleText = substr_replace($titleText, ':', 2, 0);
+            if ($isRetweet) {
+                if (substr($titleText, 0, 4) === 'RT @') {
+                    $titleText = substr_replace($titleText, ':', 2, 0);
+                } else {
+                    $titleText = 'RT: @' . $this->item['username'] . ': ' . $titleText;
+                }
             } elseif ($isReply  && !$idAsTitle) {
                 $titleText = 'R: ' . $titleText;
             }
 
             $this->item['title'] = $titleText;
+
+            // Get external link info
+            $extURL = null;
+            if (isset($tweet->entities->urls) && strpos($tweet->entities->urls[0]->expanded_url, 'twitter.com') === false) {
+                Debug::log('Found an external link!');
+                $extURL = $tweet->entities->urls[0]->expanded_url;
+                Debug::log($extURL);
+                $extDisplayURL = $tweet->entities->urls[0]->display_url;
+                $extTitle = $tweet->entities->urls[0]->title;
+                $extDesc = $tweet->entities->urls[0]->description;
+                if (isset($tweet->entities->urls[0]->images)) {
+                    $extMediaOrig = $tweet->entities->urls[0]->images[0]->url;
+                    $extMediaScaled = $tweet->entities->urls[0]->images[1]->url;
+                } else {
+                    $extMediaOrig = '';
+                    $extMediaScaled = '';
+                }
+            }
 
             // Generate Avatar HTML block
             $picture_html = '';
@@ -483,6 +510,7 @@ EOD;
             // Generate media HTML block
             $media_html = '';
             $quoted_media_html = '';
+            $ext_media_html = '';
             if (!$hideImages) {
                 if (isset($tweet->attachments->media_keys)) {
                     Debug::log('Generating HTML for tweet media');
@@ -491,6 +519,17 @@ EOD;
                 if (isset($quotedTweet->attachments->media_keys)) {
                     Debug::log('Generating HTML for quoted tweet media');
                     $quoted_media_html = $this->createTweetMediaHTML($quotedTweet, $includesMedia, $retweetedMedia);
+                }
+                if (isset($extURL)) {
+                    Debug::log('Generating HTML for external link media');
+                    if ($this->getInput('noimgscaling')) {
+                        $extMediaURL = $extMediaOrig;
+                    } else {
+                        $extMediaURL = $extMediaScaled;
+                    }
+                    $ext_media_html = <<<EOD
+<a href="$extURL"><img referrerpolicy="no-referrer" src="$extMediaURL" /></a>
+EOD;
                 }
             }
 
@@ -510,8 +549,8 @@ EOD;
             if (isset($quotedTweet)) {
                 $quotedTweetURI = self::URI . $quotedUser->username . '/status/' . $quotedTweet->id;
                 $quote_html = <<<QUOTE
-<div style="display: table; border-style: solid; border-width: 1px; 
-	border-radius: 5px; padding: 5px;">
+<div style="display: table; border-style: solid; border-width: 1px; border-radius: 5px; padding: 5px;">
+									
 	<p><b>$quotedUser->name</b> @$quotedUser->username · 
 	<a href="$quotedTweetURI">$quotedTweet->created_at</a></p>
 	$cleanedQuotedTweet
@@ -519,6 +558,20 @@ EOD;
 </div>
 QUOTE;
                 $this->item['content'] .= $quote_html;
+            }
+
+            // Add External Link HTML, if relevant
+            if (isset($extURL) && !$this->getInput('noexternallink')) {
+                Debug::log('Adding HTML for external link');
+                $ext_html = <<<EXTERNAL
+<div style="display: table; border-style: solid; border-width: 1px; border-radius: 5px; padding: 5px;">
+    $ext_media_html<br>
+    <a href="$extURL">$extDisplayURL</a><br>
+    <b>$extTitle</b><br>
+    $extDesc
+</div>
+EXTERNAL;
+                $this->item['content'] .= $ext_html;
             }
 
             $this->item['content'] = htmlspecialchars_decode($this->item['content'], ENT_QUOTES);

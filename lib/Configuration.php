@@ -21,7 +21,7 @@ final class Configuration
 {
     private const VERSION = 'dev.2022-06-14';
 
-    private static array $config = [];
+    private static $config = [];
 
     private function __construct()
     {
@@ -101,6 +101,10 @@ final class Configuration
         foreach ($env as $envName => $envValue) {
             $nameParts = explode('_', $envName);
             if ($nameParts[0] === 'RSSBRIDGE') {
+                if (count($nameParts) < 3) {
+                    // Invalid env name
+                    continue;
+                }
                 $header = $nameParts[1];
                 $key = $nameParts[2];
                 if ($envValue === 'true' || $envValue === 'false') {
@@ -194,7 +198,7 @@ final class Configuration
             if (isset($parts[3])) {
                 $branchName = $parts[3];
                 if (file_exists($revisionHashFile)) {
-                    return 'git.' . $branchName . '.' . substr(file_get_contents($revisionHashFile), 0, 7);
+                    return sprintf('%s (git.%s.%s)', self::VERSION, $branchName, substr(file_get_contents($revisionHashFile), 0, 7));
                 }
             }
         }
