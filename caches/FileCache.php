@@ -100,7 +100,7 @@ class FileCache implements CacheInterface
 
         if (!is_dir($this->path)) {
             if (mkdir($this->path, 0755, true) !== true) {
-                throw new \Exception('mkdir: Unable to create file cache folder');
+                throw new \Exception('mkdir: Unable to create file cache folder' . ': ' . path);
             }
         }
 
