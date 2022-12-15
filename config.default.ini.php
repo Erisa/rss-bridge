@@ -12,9 +12,15 @@
 ; timezone = "UTC" (default)
 timezone = "UTC"
 
+; Display a system message to users.
+message = ""
+
 [http]
 timeout = 60
 useragent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:102.0) Gecko/20100101 Firefox/102.0"
+
+; Max http response size in MB
+max_filesize = 20
 
 [cache]
 
@@ -32,6 +38,9 @@ custom_timeout = false
 ; This address is displayed on the main page, visible to everyone!
 ; ""    = Disabled (default)
 email = ""
+
+; Advertise a contact Telegram url e.g. "https://t.me/elegantobjects"
+telegram = ""
 
 ; Show Donation information for bridges if available.
 ; This will display a 'Donate' link on the bridge view
@@ -93,3 +102,13 @@ file = "cache.sqlite"
 [MemcachedCache]
 host = "localhost"
 port = 11211
+
+; --- Bridge specific configuration ------
+
+[DiscogsBridge]
+
+; Sets the personal access token for interactions with Discogs. When
+; provided, images can be included in generated feeds.
+;
+; "" = no token used (default)
+personal_access_token = ""

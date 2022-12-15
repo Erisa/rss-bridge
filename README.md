@@ -10,15 +10,28 @@ RSS-Bridge is a PHP project capable of generating RSS and Atom feeds for website
 [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#rssbridge:libera.chat)
 [![Actions Status](https://img.shields.io/github/workflow/status/RSS-Bridge/rss-bridge/Tests/master?label=GitHub%20Actions&logo=github)](https://github.com/RSS-Bridge/rss-bridge/actions)
 
-Screenshot of the Twitter bridge configuration:
+|||
+|:-:|:-:|
+|![Screenshot #1](/static/screenshot-1.png?raw=true)|![Screenshot #2](/static/screenshot-2.png?raw=true)|
+|![Screenshot #3](/static/screenshot-3.png?raw=true)|![Screenshot #4](/static/screenshot-4.png?raw=true)|
+|![Screenshot #5](/static/screenshot-5.png?raw=true)|![Screenshot #6](/static/screenshot-6.png?raw=true)|
+|![Screenshot #7](/static/twitter-form.png?raw=true)|![Screenshot #8](/static/twitter-rasmus.png?raw=true)|
 
-![Screenshot #1](/static/twitter-form.png?raw=true)
+## A subset of bridges
 
-Screenshot of the Twitter bridge for Rasmus Lerdorf:
+* `YouTube` : YouTube user channel, playlist or search
+* `Twitter` : Return keyword/hashtag search or user timeline
+* `Telegram` : Return the latest posts from a public group
+* `Reddit` : Return the latest posts from a subreddit or user
+* `Filter` : Filter an existing feed url
+* `Vk` : Latest posts from a user or group
+* `FeedMerge` : Merge two or more existing feeds into one
+* `Twitch` : Fetch the latest videos from a channel
+* `ThePirateBay` : Returns the newest indexed torrents from [The Pirate Bay](https://thepiratebay.se/) with keywords
 
-![Screenshot #2](/static/twitter-rasmus.png?raw=true)
+And [many more](bridges/), thanks to the community!
 
-[Documentation](https://rss-bridge.github.io/rss-bridge/index.html)
+[Full documentation](https://rss-bridge.github.io/rss-bridge/index.html)
 
 Check out RSS-Bridge right now on https://rss-bridge.org/bridge01 or find another
 [public instance](https://rss-bridge.github.io/rss-bridge/General/Public_Hosts.html).
@@ -55,6 +68,7 @@ server {
 
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
+        fastcgi_read_timeout 60s;
         fastcgi_pass unix:/run/php/php-fpm.sock;
     }
 }
@@ -89,6 +103,29 @@ docker start rss-bridge
 
 Browse http://localhost:3000/
 
+#### Install with docker-compose
+
+Create a `docker-compose.yml` file locally with with the following content:
+```yml
+version: '2'
+services:
+  rss-bridge:
+    image: rssbridge/rss-bridge:latest
+    volumes:
+      - </local/custom/path>:/config
+    ports:
+      - 3000:80
+    restart: unless-stopped
+```
+
+Then launch with `docker-compose`:
+
+```bash
+docker-compose up
+```
+
+Browse http://localhost:3000/
+
 ### Alternative installation methods
 
 [![Deploy on Scalingo](https://cdn.scalingo.com/deploy/button.svg)](https://my.scalingo.com/deploy?source=https://github.com/sebsauvage/rss-bridge)
@@ -101,7 +138,9 @@ modify the `repository` in `scalingo.json`. See https://github.com/RSS-Bridge/rs
 Learn more in
 [Installation](https://rss-bridge.github.io/rss-bridge/For_Hosts/Installation.html).
 
-### Create a new bridge from scratch
+## How-to
+
+### How to create a new bridge from scratch
 
 Create the new bridge in e.g. `bridges/BearBlogBridge.php`:
 
@@ -114,48 +153,19 @@ class BearBlogBridge extends BridgeAbstract
 
     public function collectData()
     {
-        // We can perform css selectors on $dom
         $dom = getSimpleHTMLDOM('https://herman.bearblog.dev/blog/');
-
-        // An array of dom nodes
-        $blogPosts = $dom->find('.blog-posts li');
-
-        foreach ($blogPosts as $blogPost) {
-            // Select the anchor at index 0 (the first anchor found)
-            $a = $blogPost->find('a', 0);
-
-            // Select the inner text of the anchor
-            $title = $a->innertext;
-
-            // Select the href attribute of the anchor
-            $url = $a->href;
-
-            // Select the <time> tag
-            $time = $blogPost->find('time', 0);
-            // Create a \DateTime object from the datetime attribute
-            $createdAt = date_create_from_format('Y-m-d', $time->datetime);
-
-            $item = [
-                'title' => $title,
-                'author' => 'Herman',
-
-                // Prepend the url because $url is a relative path
-                'uri' => 'https://herman.bearblog.dev' . $url,
-
-                // Grab the unix timestamp
-                'timestamp' => $createdAt->getTimestamp(),
+        foreach ($dom->find('.blog-posts li') as $li) {
+            $a = $li->find('a', 0);
+            $this->items[] = [
+                'title' => $a->plaintext,
+                'uri' => 'https://herman.bearblog.dev' . $a->href,
             ];
-
-            // Add the item to the list of items
-            $this->items[] = $item;
         }
     }
 }
 ```
 
 Learn more in [bridge api](https://rss-bridge.github.io/rss-bridge/Bridge_API/index.html).
-
-## How-to
 
 ### How to enable all bridges
 
@@ -199,36 +209,39 @@ The specific cache duration can be different between bridges. Cached files are d
 RSS-Bridge allows you to take full control over which bridges are displayed to the user.
 That way you can host your own RSS-Bridge service with your favorite collection of bridges!
 
-Supported output formats:
+
+## Reference
+
+### FeedItem properties
+
+```php
+    $item = [
+        'uri' => 'https://example.com/blog/hello',
+        'title' => 'Hello world',
+        // Publication date in unix timestamp
+        'timestamp' => 1668706254,
+        'author' => 'Alice',
+        'content' => 'Here be item content',
+        'enclosures' => [
+            'https://example.com/foo.png',
+            'https://example.com/bar.png'
+        ],
+        'categories' => [
+            'news',
+            'tech',
+        ],
+        // Globally unique id
+        'uid' => 'e7147580c8747aad',
+    ]
+```
+
+### Output formats:
 
 * `Atom` : Atom feed, for use in feed readers
 * `Html` : Simple HTML page
 * `Json` : JSON, for consumption by other applications
 * `Mrss` : MRSS feed, for use in feed readers
 * `Plaintext` : Raw text, for consumption by other applications
-
-## Reference
-
-### A selection of bridges
-
-* `Bandcamp` : Returns last release from [bandcamp](https://bandcamp.com/) for a tag
-* `Cryptome` : Returns the most recent documents from [Cryptome.org](https://cryptome.org/)
-* `DansTonChat`: Most recent quotes from [danstonchat.com](https://danstonchat.com/)
-* `DuckDuckGo`: Most recent results from [DuckDuckGo.com](https://duckduckgo.com/)
-* `Facebook` : Returns the latest posts on a page or profile on [Facebook](https://facebook.com/) (There is an [issue](https://github.com/RSS-Bridge/rss-bridge/issues/2047) for public instances)
-* `FlickrExplore` : [Latest interesting images](https://www.flickr.com/explore) from Flickr
-* `GoogleSearch` : Most recent results from Google Search
-* `Identi.ca` : Identica user timeline (Should be compatible with other Pump.io instances)
-* `Instagram`: Most recent photos from an Instagram user (It is recommended to [configure](https://rss-bridge.github.io/rss-bridge/Bridge_Specific/Instagram.html) this bridge to work)
-* `OpenClassrooms`: Lastest tutorials from [openclassrooms.com](https://openclassrooms.com/)
-* `Pinterest`: Most recent photos from user or search
-* `ScmbBridge`: Newest stories from [secouchermoinsbete.fr](https://secouchermoinsbete.fr/)
-* `ThePirateBay` : Returns the newest indexed torrents from [The Pirate Bay](https://thepiratebay.se/) with keywords
-* `Twitter` : Return keyword/hashtag search or user timeline
-* `Wikipedia`: highlighted articles from [Wikipedia](https://wikipedia.org/) in English, German, French or Esperanto
-* `YouTube` : YouTube user channel, playlist or search
-
-And [many more](bridges/), thanks to the community!
 
 ### Licenses
 

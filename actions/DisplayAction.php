@@ -52,8 +52,7 @@ class DisplayAction implements ActionInterface
             if (! Configuration::getConfig('cache', 'custom_timeout')) {
                 unset($request['_cache_timeout']);
                 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) . '?' . http_build_query($request);
-                header('Location: ' . $uri, true, 301);
-                return;
+                return new Response('', 301, ['Location' => $uri]);
             }
 
             $cache_timeout = filter_var($request['_cache_timeout'], FILTER_VALIDATE_INT);
@@ -116,8 +115,8 @@ class DisplayAction implements ActionInterface
 
                 if ($mtime <= $stime) {
                     // Cached data is older or same
-                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s ', $mtime) . 'GMT', true, 304);
-                    return;
+                    $lastModified2 = gmdate('D, d M Y H:i:s ', $mtime) . 'GMT';
+                    return new Response('', 304, ['Last-Modified' => $lastModified2]);
                 }
             }
 
@@ -153,7 +152,14 @@ class DisplayAction implements ActionInterface
                     'icon' => $bridge->getIcon()
                 ];
             } catch (\Throwable $e) {
-                Logger::error(sprintf('Exception in %s', $bridgeClassName), ['e' => $e]);
+                if ($e instanceof HttpException) {
+                    // Produce a smaller log record for http exceptions
+                    Logger::warning(sprintf('Exception in %s: %s', $bridgeClassName, create_sane_exception_message($e)));
+                } else {
+                    // Log the exception
+                    Logger::error(sprintf('Exception in %s', $bridgeClassName), ['e' => $e]);
+                }
+
                 $errorCount = logBridgeError($bridge::NAME, $e->getCode());
 
                 if ($errorCount >= Configuration::getConfig('error', 'report_limit')) {
@@ -163,14 +169,15 @@ class DisplayAction implements ActionInterface
                         // Create "new" error message every 24 hours
                         $request['_error_time'] = urlencode((int)(time() / 86400));
 
+                        // todo: I don't think this _error_time in the title is useful. It's confusing.
                         $itemTitle = sprintf('Bridge returned error %s! (%s)', $e->getCode(), $request['_error_time']);
                         $item->setTitle($itemTitle);
                         $item->setURI(get_current_url());
                         $item->setTimestamp(time());
 
+                        // todo: consider giving more helpful error messages
                         $content = render_template(__DIR__ . '/../templates/bridge-error.html.php', [
-                            'message' => create_sane_exception_message($e),
-                            'trace' => trace_from_exception($e),
+                            'error' => render_template(__DIR__ . '/../templates/error.html.php', ['e' => $e]),
                             'searchUrl' => self::createGithubSearchUrl($bridge),
                             'issueUrl' => self::createGithubIssueUrl($bridge, $e, create_sane_exception_message($e)),
                             'maintainer' => $bridge->getMaintainer(),
@@ -196,11 +203,12 @@ class DisplayAction implements ActionInterface
         $format->setExtraInfos($infos);
         $lastModified = $cache->getTime();
         $format->setLastModified($lastModified);
+        $headers = [];
         if ($lastModified) {
-            header('Last-Modified: ' . gmdate('D, d M Y H:i:s ', $lastModified) . 'GMT');
+            $headers['Last-Modified'] = gmdate('D, d M Y H:i:s ', $lastModified) . 'GMT';
         }
-        header('Content-Type: ' . $format->getMimeType() . '; charset=' . $format->getCharset());
-        print $format->stringify();
+        $headers['Content-Type'] = $format->getMimeType() . '; charset=' . $format->getCharset();
+        return new Response($format->stringify(), 200, $headers);
     }
 
     private static function createGithubIssueUrl($bridge, $e, string $message): string

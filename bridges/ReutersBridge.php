@@ -420,7 +420,7 @@ class ReutersBridge extends BridgeAbstract
     {
         $description = '';
         foreach ($contents as $content) {
-            $data;
+            $data = '';
             if (isset($content['content'])) {
                 $data = $content['content'];
             }
@@ -498,13 +498,15 @@ EOD;
                     break;
                 case 'table':
                     $table = '<table>';
-                    $theaders = $content['header'];
-                    $tr = '<tr>';
-                    foreach ($theaders as $header) {
-                        $tr .= '<th>' . $header . '</th>';
+                    $theaders = $content['header'] ?? null;
+                    if ($theaders) {
+                        $tr = '<tr>';
+                        foreach ($theaders as $header) {
+                            $tr .= '<th>' . $header . '</th>';
+                        }
+                        $tr .= '</tr>';
+                        $table .= $tr;
                     }
-                    $tr .= '</tr>';
-                    $table .= $tr;
                     $rows = $content['rows'];
                     foreach ($rows as $row) {
                         $tr = '<tr>';

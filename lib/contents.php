@@ -1,48 +1,82 @@
 <?php
 
-// todo: move this somewhere useful, possibly into a function
-const RSSBRIDGE_HTTP_STATUS_CODES = [
-    '100' => 'Continue',
-    '101' => 'Switching Protocols',
-    '200' => 'OK',
-    '201' => 'Created',
-    '202' => 'Accepted',
-    '203' => 'Non-Authoritative Information',
-    '204' => 'No Content',
-    '205' => 'Reset Content',
-    '206' => 'Partial Content',
-    '300' => 'Multiple Choices',
-    '301' => 'Moved Permanently',
-    '302' => 'Found',
-    '303' => 'See Other',
-    '304' => 'Not Modified',
-    '305' => 'Use Proxy',
-    '400' => 'Bad Request',
-    '401' => 'Unauthorized',
-    '402' => 'Payment Required',
-    '403' => 'Forbidden',
-    '404' => 'Not Found',
-    '405' => 'Method Not Allowed',
-    '406' => 'Not Acceptable',
-    '407' => 'Proxy Authentication Required',
-    '408' => 'Request Timeout',
-    '409' => 'Conflict',
-    '410' => 'Gone',
-    '411' => 'Length Required',
-    '412' => 'Precondition Failed',
-    '413' => 'Request Entity Too Large',
-    '414' => 'Request-URI Too Long',
-    '415' => 'Unsupported Media Type',
-    '416' => 'Requested Range Not Satisfiable',
-    '417' => 'Expectation Failed',
-    '429' => 'Too Many Requests',
-    '500' => 'Internal Server Error',
-    '501' => 'Not Implemented',
-    '502' => 'Bad Gateway',
-    '503' => 'Service Unavailable',
-    '504' => 'Gateway Timeout',
-    '505' => 'HTTP Version Not Supported'
-];
+final class Response
+{
+    public const STATUS_CODES = [
+        '100' => 'Continue',
+        '101' => 'Switching Protocols',
+        '200' => 'OK',
+        '201' => 'Created',
+        '202' => 'Accepted',
+        '203' => 'Non-Authoritative Information',
+        '204' => 'No Content',
+        '205' => 'Reset Content',
+        '206' => 'Partial Content',
+        '300' => 'Multiple Choices',
+        '301' => 'Moved Permanently',
+        '302' => 'Found',
+        '303' => 'See Other',
+        '304' => 'Not Modified',
+        '305' => 'Use Proxy',
+        '400' => 'Bad Request',
+        '401' => 'Unauthorized',
+        '402' => 'Payment Required',
+        '403' => 'Forbidden',
+        '404' => 'Not Found',
+        '405' => 'Method Not Allowed',
+        '406' => 'Not Acceptable',
+        '407' => 'Proxy Authentication Required',
+        '408' => 'Request Timeout',
+        '409' => 'Conflict',
+        '410' => 'Gone',
+        '411' => 'Length Required',
+        '412' => 'Precondition Failed',
+        '413' => 'Request Entity Too Large',
+        '414' => 'Request-URI Too Long',
+        '415' => 'Unsupported Media Type',
+        '416' => 'Requested Range Not Satisfiable',
+        '417' => 'Expectation Failed',
+        '429' => 'Too Many Requests',
+        '500' => 'Internal Server Error',
+        '501' => 'Not Implemented',
+        '502' => 'Bad Gateway',
+        '503' => 'Service Unavailable',
+        '504' => 'Gateway Timeout',
+        '505' => 'HTTP Version Not Supported'
+    ];
+    private string $body;
+    private int $code;
+    private array $headers;
+
+    public function __construct(
+        string $body = '',
+        int $code = 200,
+        array $headers = []
+    ) {
+        $this->body = $body;
+        $this->code = $code;
+        $this->headers = $headers;
+    }
+
+    public function getBody()
+    {
+        return $this->body;
+    }
+
+    public function getHeaders()
+    {
+        return $this->headers;
+    }
+
+    public function send(): void
+    {
+        http_response_code($this->code);
+        foreach ($this->headers as $name => $value) {
+            header(sprintf('%s: %s', $name, $value));
+        }
+        print $this->body;
+    }
+}
 
 /**
  * Fetch data from an http url
@@ -91,9 +125,18 @@ function getContents(
         $httpHeadersNormalized[$headerName] = $headerValue;
     }
     $config = [
+        'useragent' => Configuration::getConfig('http', 'useragent'),
+        'timeout' => Configuration::getConfig('http', 'timeout'),
         'headers' => array_merge($defaultHttpHeaders, $httpHeadersNormalized),
         'curl_options' => $curlOptions,
     ];
+
+    $maxFileSize = Configuration::getConfig('http', 'max_filesize');
+    if ($maxFileSize) {
+        // Multiply with 2^20 (1M) to the value in bytes
+        $config['max_filesize'] = $maxFileSize * 2 ** 20;
+    }
+
     if (Configuration::getConfig('proxy', 'url') && !defined('NOPROXY')) {
         $config['proxy'] = Configuration::getConfig('proxy', 'url');
     }
@@ -135,15 +178,29 @@ function getContents(
             $response['content'] = $cache->loadData();
             break;
         default:
-            throw new HttpException(
-                sprintf(
-                    '%s resulted in `%s %s`',
-                    $url,
-                    $result['code'],
-                    RSSBRIDGE_HTTP_STATUS_CODES[$result['code']] ?? ''
-                ),
-                $result['code']
-            );
+            if (Debug::isEnabled()) {
+                // Include a part of the response body in the exception message
+                throw new HttpException(
+                    sprintf(
+                        '%s resulted in `%s %s: %s`',
+                        $url,
+                        $result['code'],
+                        Response::STATUS_CODES[$result['code']] ?? '',
+                        mb_substr($result['body'], 0, 500),
+                    ),
+                    $result['code']
+                );
+            } else {
+                throw new HttpException(
+                    sprintf(
+                        '%s resulted in `%s %s`',
+                        $url,
+                        $result['code'],
+                        Response::STATUS_CODES[$result['code']] ?? '',
+                    ),
+                    $result['code']
+                );
+            }
     }
     if ($returnFull === true) {
         return $response;
@@ -152,22 +209,22 @@ function getContents(
 }
 
 /**
- * Private function used internally
- *
  * Fetch content from url
  *
+ * @internal Private function used internally
  * @throws HttpException
  */
 function _http_request(string $url, array $config = []): array
 {
     $defaults = [
-        'useragent' => Configuration::getConfig('http', 'useragent'),
-        'timeout' => Configuration::getConfig('http', 'timeout'),
+        'useragent' => null,
+        'timeout' => 5,
         'headers' => [],
         'proxy' => null,
         'curl_options' => [],
         'if_not_modified_since' => null,
         'retries' => 3,
+        'max_filesize' => null,
     ];
     $config = array_merge($defaults, $config);
 
@@ -181,12 +238,29 @@ function _http_request(string $url, array $config = []): array
         $httpHeaders[] = sprintf('%s: %s', $name, $value);
     }
     curl_setopt($ch, CURLOPT_HTTPHEADER, $httpHeaders);
-    curl_setopt($ch, CURLOPT_USERAGENT, $config['useragent']);
+    if ($config['useragent']) {
+        curl_setopt($ch, CURLOPT_USERAGENT, $config['useragent']);
+    }
     curl_setopt($ch, CURLOPT_TIMEOUT, $config['timeout']);
     curl_setopt($ch, CURLOPT_ENCODING, '');
     curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
     // Force HTTP 1.1 because newer versions of libcurl defaults to HTTP/2
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+
+    if ($config['max_filesize']) {
+        // This option inspects the Content-Length header
+        curl_setopt($ch, CURLOPT_MAXFILESIZE, $config['max_filesize']);
+        curl_setopt($ch, CURLOPT_NOPROGRESS, false);
+        // This progress function will monitor responses who omit the Content-Length header
+        curl_setopt($ch, CURLOPT_PROGRESSFUNCTION, function ($ch, $downloadSize, $downloaded, $uploadSize, $uploaded) use ($config) {
+            if ($downloaded > $config['max_filesize']) {
+                // Return a non-zero value to abort the transfer
+                return -1;
+            }
+            return 0;
+        });
+    }
+
     if ($config['proxy']) {
         curl_setopt($ch, CURLOPT_PROXY, $config['proxy']);
     }
@@ -348,7 +422,7 @@ function getSimpleHTMLDOMCached(
     $defaultBRText = DEFAULT_BR_TEXT,
     $defaultSpanText = DEFAULT_SPAN_TEXT
 ) {
-    Debug::log('Caching url ' . $url . ', duration ' . $duration);
+    Logger::debug(sprintf('Caching url %s, duration %d', $url, $duration));
 
     // Initialize cache
     $cacheFactory = new CacheFactory();

@@ -60,6 +60,7 @@ class FileCache implements CacheInterface
                 continue;
             } elseif ($cacheFile->isFile()) {
                 if (filemtime($cacheFile->getPathname()) < time() - $seconds) {
+                    // todo: sometimes this file doesn't exists
                     unlink($cacheFile->getPathname());
                 }
             }
@@ -68,7 +69,7 @@ class FileCache implements CacheInterface
 
     public function setScope($scope)
     {
-        if (is_null($scope) || !is_string($scope)) {
+        if (!is_string($scope)) {
             throw new \Exception('The given scope is invalid!');
         }
 
@@ -79,9 +80,6 @@ class FileCache implements CacheInterface
 
     public function setKey($key)
     {
-        if (!empty($key) && is_array($key)) {
-            $key = array_map('strtolower', $key);
-        }
         $key = json_encode($key);
 
         if (!is_string($key)) {
