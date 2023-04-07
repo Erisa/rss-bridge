@@ -1,6 +1,10 @@
 <?php
 
-final class HttpException extends \Exception
+class HttpException extends \Exception
+{
+}
+
+final class CloudFlareException extends HttpException
 {
 }
 
@@ -225,4 +229,9 @@ function format_bytes(int $bytes, $precision = 2)
 function now(): \DateTimeImmutable
 {
     return new \DateTimeImmutable();
+}
+
+function create_random_string(int $bytes = 16): string
+{
+    return bin2hex(openssl_random_pseudo_bytes($bytes));
 }
