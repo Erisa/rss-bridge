@@ -36,17 +36,3 @@ processes = []
     interval = "15s"
     restart_limit = 0
     timeout = "2s"
-
-  [[services.http_checks]]
-    interval = "15s"
-    grace_period = "30s"
-    method = "get"
-    path = "/lib/bootstrap.php"
-    protocol = "http"
-    restart_limit = 0
-    timeout = "5s"
-    tls_skip_verify = false
-    
-  [[services.http_checks.headers]]
-    Host = "rss-bridge.lewd.tech"
-  
