@@ -1,38 +1,38 @@
-# fly.toml file generated for rss-bridge on 2022-08-07T21:40:07+01:00
+# fly.toml app configuration file generated for rss-bridge on 2023-04-20T22:01:10+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = "rss-bridge"
+primary_region = "lhr"
 kill_signal = "SIGINT"
 kill_timeout = 5
-processes = []
-
-[env]
 
 [experimental]
-  allowed_public_ports = []
   auto_rollback = true
 
 [[services]]
-  # http_checks = []
+  protocol = "tcp"
   internal_port = 80
   processes = ["app"]
-  protocol = "tcp"
-  script_checks = []
-  # [services.concurrency]
-  #   hard_limit = 25
-  #   soft_limit = 20
-  #   type = "connections"
 
   [[services.ports]]
-    force_https = true
-    handlers = ["http"]
     port = 80
+    handlers = ["http"]
+    force_https = true
 
   [[services.ports]]
-    handlers = ["tls", "http"]
     port = 443
+    handlers = ["tls", "http"]
 
   [[services.tcp_checks]]
-    grace_period = "30s"
     interval = "15s"
-    restart_limit = 0
     timeout = "2s"
+    grace_period = "30s"
+    restart_limit = 0
+
+  [http_service]
+    # automatically start machines
+    auto_start_machines = true
+    # automatically stop machines
+    auto_stop_machines = true
