@@ -27,7 +27,7 @@ RSS-Bridge is a PHP project capable of generating RSS and Atom feeds for website
 * `Vk` : Latest posts from a user or group
 * `FeedMerge` : Merge two or more existing feeds into one
 * `Twitch` : Fetch the latest videos from a channel
-* `ThePirateBay` : Returns the newest indexed torrents from [The Pirate Bay](https://thepiratebay.se/) with keywords
+* `ThePirateBay` : Returns the newest indexed txrrents from [The Pirate Bay](https://thepiratebay.se/) with keywords
 
 And [many more](bridges/), thanks to the community!
 
