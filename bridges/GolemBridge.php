@@ -88,6 +88,14 @@ class GolemBridge extends FeedExpander
                 $item['author'] = $author->plaintext;
             }
 
+            $categories = $articlePage->find('ul.tags__list li');
+            foreach ($categories as $category) {
+                $trimmedcategories[] = trim(html_entity_decode($category->plaintext));
+            }
+            if (isset($trimmedcategories)) {
+                $item['categories'] = array_unique($trimmedcategories);
+            }
+
             $item['content'] .= $this->extractContent($articlePage);
 
             // next page
@@ -106,7 +114,7 @@ class GolemBridge extends FeedExpander
 
         // delete known bad elements
         foreach (
-            $article->find('div[id*="adtile"], #job-market, #seminars,
+            $article->find('div[id*="adtile"], #job-market, #seminars, iframe,
 			div.gbox_affiliate, div.toc, .embedcontent') as $bad
         ) {
             $bad->remove();

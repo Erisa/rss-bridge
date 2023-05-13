@@ -115,7 +115,7 @@ function getContents(
         'Sec-Fetch-Mode' => 'navigate',
         'Sec-Fetch-Site' => 'none',
         'Sec-Fetch-User' => '?1',
-        'TE' => 'Trailers',
+        'TE' => 'trailers',
     ];
     $httpHeadersNormalized = [];
     foreach ($httpHeaders as $httpHeader) {
@@ -191,7 +191,8 @@ function getContents(
             $cloudflareTitles = [
                 '<title>Just a moment...',
                 '<title>Please Wait...',
-                '<title>Attention Required!'
+                '<title>Attention Required!',
+                '<title>Security | Glassdoor',
             ];
             foreach ($cloudflareTitles as $cloudflareTitle) {
                 if (str_contains($result['body'], $cloudflareTitle)) {

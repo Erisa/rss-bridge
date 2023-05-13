@@ -150,7 +150,7 @@ class HeiseBridge extends FeedExpander
         $article = defaultLinkTo($article, $item['uri']);
 
         // remove unwanted stuff
-        foreach ($article->find('figure.branding, a-ad, div.ho-text, a-img, .opt-in__content-container, .a-toc__list') as $element) {
+        foreach ($article->find('figure.branding, a-ad, div.ho-text, a-img, .opt-in__content-container, .a-toc__list, a-collapse') as $element) {
             $element->remove();
         }
         // reload html, as remove() is buggy
@@ -161,12 +161,17 @@ class HeiseBridge extends FeedExpander
             $headerElements = $header->find('p, figure img, noscript img');
             $item['content'] = implode('', $headerElements);
 
-            $authors = $header->find('.a-creator__names .a-creator__name');
+            $authors = $header->find('.creator__names .creator__name');
             if ($authors) {
                 $item['author'] = implode(', ', array_map(function ($e) {
                     return $e->plaintext;
                 }, $authors));
             }
+        }
+
+        $categories = $article->find('.article-footer__topics ul.topics li.topics__item');
+        foreach ($categories as $category) {
+            $item['categories'][] = trim($category->plaintext);
         }
 
         $content = $article->find('.article-content', 0);
