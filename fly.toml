@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for rss-bridge on 2023-04-20T22:01:10+01:00
+# fly.toml app configuration file generated for rss-bridge on 2023-05-13T15:11:02Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -6,10 +6,15 @@
 app = "rss-bridge"
 primary_region = "lhr"
 kill_signal = "SIGINT"
-kill_timeout = 5
+kill_timeout = "5s"
 
 [experimental]
   auto_rollback = true
+
+[http_service]
+  internal_port = 80
+  auto_stop_machines = true
+  auto_start_machines = true
 
 [[services]]
   protocol = "tcp"
@@ -30,9 +35,3 @@ kill_timeout = 5
     timeout = "2s"
     grace_period = "30s"
     restart_limit = 0
-
-  [http_service]
-    # automatically start machines
-    auto_start_machines = true
-    # automatically stop machines
-    auto_stop_machines = true

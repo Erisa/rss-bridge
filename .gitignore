@@ -243,3 +243,5 @@ config/*
 
 #Crawler
 robots.txt
+
+.env

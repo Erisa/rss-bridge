@@ -1,0 +1,15 @@
+version: "3.1"
+
+services:
+  cloudflared:
+    image: erisamoe/cloudflared
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+  
+  rss-bridge:
+    build: .
+    restart: unless-stopped
+    environment:
+      - RSSBRIDGE_TwitterV2Bridge_twitterv2apitoken=${RSSBRIDGE_TwitterV2Bridge_twitterv2apitoken}
