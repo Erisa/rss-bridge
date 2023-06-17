@@ -18,20 +18,13 @@ class DisplayAction implements ActionInterface
     {
         $bridgeFactory = new BridgeFactory();
 
-        $bridgeClassName = null;
-        if (isset($request['bridge'])) {
-            $bridgeClassName = $bridgeFactory->sanitizeBridgeName($request['bridge']);
-        }
-
-        if ($bridgeClassName === null) {
-            throw new \InvalidArgumentException('Bridge name invalid!');
-        }
+        $bridgeClassName = $bridgeFactory->createBridgeClassName($request['bridge'] ?? '');
 
         $format = $request['format'] ?? null;
         if (!$format) {
             throw new \Exception('You must specify a format!');
         }
-        if (!$bridgeFactory->isWhitelisted($bridgeClassName)) {
+        if (!$bridgeFactory->isEnabled($bridgeClassName)) {
             throw new \Exception('This bridge is not whitelisted');
         }
 
@@ -41,8 +34,7 @@ class DisplayAction implements ActionInterface
         $bridge = $bridgeFactory->create($bridgeClassName);
         $bridge->loadConfiguration();
 
-        $noproxy = array_key_exists('_noproxy', $request)
-            && filter_var($request['_noproxy'], FILTER_VALIDATE_BOOLEAN);
+        $noproxy = array_key_exists('_noproxy', $request) && filter_var($request['_noproxy'], FILTER_VALIDATE_BOOLEAN);
 
         if (Configuration::getConfig('proxy', 'url') && Configuration::getConfig('proxy', 'by_bridge') && $noproxy) {
             define('NOPROXY', true);
@@ -107,7 +99,7 @@ class DisplayAction implements ActionInterface
             && (time() - $cache_timeout < $mtime)
             && !Debug::isEnabled()
         ) {
-            // At this point we found the feed in the cache
+            // At this point we found the feed in the cache and debug mode is disabled
 
             if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE'])) {
                 // The client wants to know if the feed has changed since its last check
@@ -118,7 +110,7 @@ class DisplayAction implements ActionInterface
                 }
             }
 
-            // Fetch the cached feed from the cache and prepare it
+            // Load the feed from cache and prepare it
             $cached = $cache->loadData();
             if (isset($cached['items']) && isset($cached['extraInfos'])) {
                 foreach ($cached['items'] as $item) {
@@ -127,7 +119,7 @@ class DisplayAction implements ActionInterface
                 $infos = $cached['extraInfos'];
             }
         } else {
-            // At this point we did NOT find the feed in the cache. So invoke the bridge!
+            // At this point we did NOT find the feed in the cache or debug mode is enabled.
             try {
                 $bridge->setDatas($bridge_params);
                 $bridge->collectData();
@@ -200,7 +192,7 @@ class DisplayAction implements ActionInterface
         $item->setURI(get_current_url());
         $item->setTimestamp(time());
 
-        // Create a item identifier for feed readers e.g. "staysafetv twitch videos_19389"
+        // Create an item identifier for feed readers e.g. "staysafetv twitch videos_19389"
         $item->setUid($bridge->getName() . '_' . $uniqueIdentifier);
 
         $content = render_template(__DIR__ . '/../templates/bridge-error.html.php', [

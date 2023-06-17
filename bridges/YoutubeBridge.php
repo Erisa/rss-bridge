@@ -13,7 +13,6 @@ class YoutubeBridge extends BridgeAbstract
     const URI = 'https://www.youtube.com/';
     const CACHE_TIMEOUT = 10800; // 3h
     const DESCRIPTION = 'Returns the 10 newest videos by username/channel/playlist or search';
-    const MAINTAINER = 'em92';
 
     const PARAMETERS = [
         'By username' => [
@@ -336,6 +335,7 @@ class YoutubeBridge extends BridgeAbstract
                 $html = $this->ytGetSimpleHTMLDOM($url_listing);
                 $jsonData = $this->getJSONData($html);
                 $url_feed = $jsonData->metadata->channelMetadataRenderer->rssUrl;
+                $this->iconURL = $jsonData->metadata->channelMetadataRenderer->avatar->thumbnails[0]->url;
             }
             if (!$this->skipFeeds()) {
                 $html = $this->ytGetSimpleHTMLDOM($url_feed);
@@ -442,6 +442,15 @@ class YoutubeBridge extends BridgeAbstract
                 return htmlspecialchars_decode($this->feedName) . ' - YouTube'; // We already know it's a bridge, right?
             default:
                 return parent::getName();
+        }
+    }
+
+    public function getIcon()
+    {
+        if (empty($this->iconURL)) {
+            return parent::getIcon();
+        } else {
+            return $this->iconURL;
         }
     }
 }

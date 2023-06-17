@@ -16,7 +16,6 @@
 const PATH_ROOT = __DIR__ . '/../';
 
 /** Path to the bridges library */
-const PATH_LIB_BRIDGES = __DIR__ . '/../bridges/';
 
 /** Path to the formats library */
 const PATH_LIB_FORMATS = __DIR__ . '/../formats/';
@@ -30,16 +29,11 @@ const PATH_LIB_ACTIONS = __DIR__ . '/../actions/';
 /** Path to the cache folder */
 const PATH_CACHE = __DIR__ . '/../cache/';
 
-/** Path to the whitelist file */
-const WHITELIST = __DIR__ . '/../whitelist.txt';
-
-/** Path to the default whitelist file */
-const WHITELIST_DEFAULT = __DIR__ . '/../whitelist.default.txt';
-
 /** URL to the RSS-Bridge repository */
 const REPOSITORY = 'https://github.com/RSS-Bridge/rss-bridge/';
 
 // Allow larger files for simple_html_dom
+// todo: extract to config (if possible)
 const MAX_FILE_SIZE = 10000000;
 
 // Files

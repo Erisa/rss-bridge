@@ -15,7 +15,7 @@ final class FrontpageAction implements ActionInterface
 
         $body = '';
         foreach ($bridgeClassNames as $bridgeClassName) {
-            if ($bridgeFactory->isWhitelisted($bridgeClassName)) {
+            if ($bridgeFactory->isEnabled($bridgeClassName)) {
                 $body .= BridgeCard::displayBridgeCard($bridgeClassName, $formats);
                 $activeBridges++;
             } elseif ($showInactive) {
@@ -24,6 +24,7 @@ final class FrontpageAction implements ActionInterface
         }
 
         return render(__DIR__ . '/../templates/frontpage.html.php', [
+            'messages' => [],
             'admin_email' => Configuration::getConfig('admin', 'email'),
             'admin_telegram' => Configuration::getConfig('admin', 'telegram'),
             'bridges' => $body,
