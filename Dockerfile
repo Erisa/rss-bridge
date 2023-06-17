@@ -33,4 +33,6 @@ ENV CURL_IMPERSONATE ff91esr
 
 EXPOSE 80
 
+LABEL com.centurylinklabs.watchtower.enable true
+
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
