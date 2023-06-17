@@ -9,7 +9,7 @@ services:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
   
   rss-bridge:
-    build: .
+    image: ghcr.io/erisa/rss-bridge
     restart: unless-stopped
     environment:
       - RSSBRIDGE_TwitterV2Bridge_twitterv2apitoken=${RSSBRIDGE_TwitterV2Bridge_twitterv2apitoken}
