@@ -10,7 +10,7 @@ on:
 
 env:
   DOCKERHUB_SLUG: rssbridge/rss-bridge
-  GHCR_SLUG: ghcr.io/rss-bridge/rss-bridge
+  GHCR_SLUG: ghcr.io/erisa/rss-bridge
 
 jobs:
   bake:
