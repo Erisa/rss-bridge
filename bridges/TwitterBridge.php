@@ -235,8 +235,23 @@ EOD
                 $screenName = trim($screenName);
                 $screenName = ltrim($screenName, '@');
 
-                $data = $api->fetchUserTweets($screenName);
+                //$data = $api->fetchUserTweets($screenName);
+                // https://syndication.twitter.com/srv/timeline-profile/screen-name/asmongold
+                $html = getContents('https://syndication.twitter.com/srv/timeline-profile/screen-name/' . $screenName);
+                preg_match('#<script id="__NEXT_DATA__" type="application/json">(.*)</script><script nomodule="" #', $html, $m);
+                $data2 = json_decode($m[1]);
 
+                $entries = $data2->props->pageProps->timeline->entries;
+                $tweets2 = [];
+                foreach ($entries as $entry) {
+                    $tweet = $entry->content->tweet;
+                    $tweets2[] = $tweet;
+                    //$text = $tweet->text;
+                    //$full_text = $tweet->full_text;
+                }
+                $data = new \stdClass();
+                $data->user_info = $tweets2[0]->user;
+                $data->tweets = $tweets2;
                 break;
 
             case 'By keyword or hashtag':
@@ -341,9 +356,9 @@ EOD
                 $realtweet = $tweet->retweeted_status;
             }
 
-            $item['username']  = $data->user_info->legacy->screen_name;
-            $item['fullname']  = $data->user_info->legacy->name;
-            $item['avatar']    = $data->user_info->legacy->profile_image_url_https;
+            $item['username']  = $data->user_info->screen_name;
+            $item['fullname']  = $data->user_info->name;
+            $item['avatar']    = $data->user_info->profile_image_url_https;
             $item['timestamp'] = $realtweet->created_at;
             $item['id']        = $realtweet->id_str;
             $item['uri']       = self::URI . $item['username'] . '/status/' . $item['id'];
