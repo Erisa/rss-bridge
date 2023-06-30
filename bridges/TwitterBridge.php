@@ -250,7 +250,9 @@ EOD
                     //$full_text = $tweet->full_text;
                 }
                 $data = new \stdClass();
-                $data->user_info = $tweets2[0]->user;
+                if (isset($tweets2[0])) {
+                    $data->user_info = $tweets2[0]->user;
+                }
                 $data->tweets = $tweets2;
                 break;
 
