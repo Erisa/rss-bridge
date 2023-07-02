@@ -237,7 +237,14 @@ EOD
 
                 //$data = $api->fetchUserTweets($screenName);
                 // https://syndication.twitter.com/srv/timeline-profile/screen-name/asmongold
-                $html = getContents('https://syndication.twitter.com/srv/timeline-profile/screen-name/' . $screenName);
+                try {
+                    $html = getContents('https://syndication.twitter.com/srv/timeline-profile/screen-name/' . $screenName);
+                } catch (HttpException $e) {
+                    if ($e->getCode() === 500 && str_contains($e->getMessage(), '<title>Twitter / Error</title>')) {
+                        return;
+                    }
+                    throw $e;
+                }
                 preg_match('#<script id="__NEXT_DATA__" type="application/json">(.*)</script><script nomodule="" #', $html, $m);
                 $data2 = json_decode($m[1]);
 
