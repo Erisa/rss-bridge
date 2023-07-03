@@ -240,7 +240,7 @@ EOD
                 try {
                     $html = getContents('https://syndication.twitter.com/srv/timeline-profile/screen-name/' . $screenName);
                 } catch (HttpException $e) {
-                    if ($e->getCode() === 500 && str_contains($e->getMessage(), '<title>Twitter / Error</title>')) {
+                    if ($e->getCode() === 500) {
                         return;
                     }
                     throw $e;
