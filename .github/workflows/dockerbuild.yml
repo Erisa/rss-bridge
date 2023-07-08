@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - 'master'
-    tags:
-      - '20*'
-  workflow_dispatch: 
 
 env:
   DOCKERHUB_SLUG: rssbridge/rss-bridge
