@@ -16,6 +16,10 @@ class DisplayAction implements ActionInterface
 {
     public function execute(array $request)
     {
+        if (Configuration::getConfig('system', 'enable_maintenance_mode')) {
+            return new Response('503 Service Unavailable', 503);
+        }
+
         $bridgeFactory = new BridgeFactory();
 
         $bridgeClassName = $bridgeFactory->createBridgeClassName($request['bridge'] ?? '');
@@ -34,22 +38,22 @@ class DisplayAction implements ActionInterface
         $bridge = $bridgeFactory->create($bridgeClassName);
         $bridge->loadConfiguration();
 
-        $noproxy = array_key_exists('_noproxy', $request) && filter_var($request['_noproxy'], FILTER_VALIDATE_BOOLEAN);
-
-        if (Configuration::getConfig('proxy', 'url') && Configuration::getConfig('proxy', 'by_bridge') && $noproxy) {
+        $noproxy = $request['_noproxy'] ?? null;
+        if (
+            Configuration::getConfig('proxy', 'url')
+            && Configuration::getConfig('proxy', 'by_bridge')
+            && $noproxy
+        ) {
+            // This const is only used once in getContents()
             define('NOPROXY', true);
         }
 
-        if (array_key_exists('_cache_timeout', $request)) {
-            if (! Configuration::getConfig('cache', 'custom_timeout')) {
-                unset($request['_cache_timeout']);
-                $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) . '?' . http_build_query($request);
-                return new Response('', 301, ['Location' => $uri]);
-            }
-
-            $cache_timeout = filter_var($request['_cache_timeout'], FILTER_VALIDATE_INT);
+        $cacheTimeout = $request['_cache_timeout'] ?? null;
+        if (Configuration::getConfig('cache', 'custom_timeout') && $cacheTimeout) {
+            $cacheTimeout = (int) $cacheTimeout;
         } else {
-            $cache_timeout = $bridge->getCacheTimeout();
+            // At this point the query argument might still be in the url but it won't be used
+            $cacheTimeout = $bridge->getCacheTimeout();
         }
 
         // Remove parameters that don't concern bridges
@@ -83,20 +87,19 @@ class DisplayAction implements ActionInterface
             )
         );
 
-        $cacheFactory = new CacheFactory();
-
-        $cache = $cacheFactory->create();
+        $cache = RssBridge::getCache();
         $cache->setScope('');
-        $cache->purgeCache(86400); // 24 hours
         $cache->setKey($cache_params);
+        // This cache purge will basically delete all cache items older than 24h, regardless of scope and key
+        $cache->purgeCache(86400);
 
         $items = [];
         $infos = [];
         $mtime = $cache->getTime();
 
         if (
-            $mtime !== false
-            && (time() - $cache_timeout < $mtime)
+            $mtime
+            && (time() - $cacheTimeout < $mtime)
             && !Debug::isEnabled()
         ) {
             // At this point we found the feed in the cache and debug mode is disabled
@@ -161,6 +164,9 @@ class DisplayAction implements ActionInterface
                 }
             }
 
+            // Unfortunately need to set scope and key again because they might be modified
+            $cache->setScope('');
+            $cache->setKey($cache_params);
             $cache->saveData([
                 'items' => array_map(function (FeedItem $item) {
                     return $item->toArray();
@@ -207,11 +213,10 @@ class DisplayAction implements ActionInterface
 
     private static function logBridgeError($bridgeName, $code)
     {
-        $cacheFactory = new CacheFactory();
-        $cache = $cacheFactory->create();
+        $cache = RssBridge::getCache();
         $cache->setScope('error_reporting');
         $cache->setkey([$bridgeName . '_' . $code]);
-        $cache->purgeCache(86400); // 24 hours
+
         if ($report = $cache->loadData()) {
             $report = Json::decode($report);
             $report['time'] = time();

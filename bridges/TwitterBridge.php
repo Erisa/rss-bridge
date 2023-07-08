@@ -223,12 +223,11 @@ EOD
         // Try to get all tweets
         switch ($this->queriedContext) {
             case 'By username':
-                $cacheFactory = new CacheFactory();
-                $cache = $cacheFactory->create();
-
+                $cache = RssBridge::getCache();
                 $cache->setScope('twitter');
                 $cache->setKey(['cache']);
-                $cache->purgeCache(60 * 60 * 3); // 3h
+                // todo: inspect mtime instead of purging with 3h
+                $cache->purgeCache(60 * 60 * 3);
                 $api = new TwitterClient($cache);
 
                 $screenName = $this->getInput('u');
@@ -535,9 +534,7 @@ EOD;
     //This function takes 2 requests, and therefore is cached
     private function getApiKey($forceNew = 0)
     {
-        $cacheFactory = new CacheFactory();
-
-        $r_cache = $cacheFactory->create();
+        $r_cache = RssBridge::getCache();
         $scope = 'TwitterBridge';
         $r_cache->setScope($scope);
         $r_cache->setKey(['refresh']);
@@ -553,7 +550,7 @@ EOD;
 
         $cacheFactory = new CacheFactory();
 
-        $cache = $cacheFactory->create();
+        $cache = RssBridge::getCache();
         $cache->setScope($scope);
         $cache->setKey(['api_key']);
         $data = $cache->loadData();
@@ -588,9 +585,7 @@ EOD;
             $apiKey = $data;
         }
 
-        $cacheFac2 = new CacheFactory();
-
-        $gt_cache = $cacheFactory->create();
+        $gt_cache = RssBridge::getCache();
         $gt_cache->setScope($scope);
         $gt_cache->setKey(['guest_token']);
         $guestTokenUses = $gt_cache->loadData();

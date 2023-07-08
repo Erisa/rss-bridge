@@ -109,11 +109,11 @@ final class Configuration
         }
 
         if (file_exists(__DIR__ . '/../whitelist.txt')) {
-            $whitelist = trim(file_get_contents(__DIR__ . '/../whitelist.txt'));
-            if ($whitelist === '*') {
+            $enabledBridges = trim(file_get_contents(__DIR__ . '/../whitelist.txt'));
+            if ($enabledBridges === '*') {
                 self::setConfig('system', 'enabled_bridges', ['*']);
             } else {
-                self::setConfig('system', 'enabled_bridges', explode("\n", $whitelist));
+                self::setConfig('system', 'enabled_bridges', array_filter(explode("\n", $enabledBridges)));
             }
         }
 
@@ -220,9 +220,9 @@ final class Configuration
         }
     }
 
-    public static function getConfig(string $section, string $key)
+    public static function getConfig(string $section, string $key, $default = null)
     {
-        return self::$config[strtolower($section)][strtolower($key)] ?? null;
+        return self::$config[strtolower($section)][strtolower($key)] ?? $default;
     }
 
     private static function setConfig(string $section, string $key, $value): void

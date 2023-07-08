@@ -2,11 +2,11 @@
 
 class MemcachedCache implements CacheInterface
 {
-    private $scope;
-    private $key;
+    private string $scope;
+    private string $key;
     private $conn;
     private $expiration = 0;
-    private $time = false;
+    private $time = null;
     private $data = null;
 
     public function __construct()
@@ -58,11 +58,11 @@ class MemcachedCache implements CacheInterface
         return $result['data'];
     }
 
-    public function saveData($datas)
+    public function saveData($data): void
     {
         $time = time();
         $object_to_save = [
-            'data' => $datas,
+            'data' => $data,
             'time' => $time,
         ];
         $result = $this->conn->set($this->getCacheKey(), $object_to_save, $this->expiration);
@@ -72,44 +72,31 @@ class MemcachedCache implements CacheInterface
         }
 
         $this->time = $time;
-
-        return $this;
     }
 
-    public function getTime()
+    public function getTime(): ?int
     {
-        if ($this->time === false) {
+        if ($this->time === null) {
             $this->loadData();
         }
         return $this->time;
     }
 
-    public function purgeCache($duration)
+    public function purgeCache(int $seconds): void
     {
         // Note: does not purges cache right now
         // Just sets cache expiration and leave cache purging for memcached itself
-        $this->expiration = $duration;
+        $this->expiration = $seconds;
     }
 
-    public function setScope($scope)
+    public function setScope(string $scope): void
     {
         $this->scope = $scope;
-        return $this;
     }
 
-    public function setKey($key)
+    public function setKey(array $key): void
     {
-        if (!empty($key) && is_array($key)) {
-            $key = array_map('strtolower', $key);
-        }
-        $key = json_encode($key);
-
-        if (!is_string($key)) {
-            throw new \Exception('The given key is invalid!');
-        }
-
-        $this->key = $key;
-        return $this;
+        $this->key = json_encode($key);
     }
 
     private function getCacheKey()
