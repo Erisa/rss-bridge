@@ -36,13 +36,17 @@ class SoundCloudBridge extends BridgeAbstract
 
     private $feedTitle = null;
     private $feedIcon = null;
-    private $clientIDCache = null;
+    private $cache = null;
 
     private $clientIdRegex = '/client_id.*?"(.+?)"/';
     private $widgetRegex = '/widget-.+?\.js/';
 
     public function collectData()
     {
+        $this->cache = RssBridge::getCache();
+        $this->cache->setScope('SoundCloudBridge');
+        $this->cache->setKey(['client_id']);
+
         $res = $this->getUser($this->getInput('u'));
 
         $this->feedTitle = $res->username;
@@ -62,8 +66,7 @@ class SoundCloudBridge extends BridgeAbstract
             $item['author'] = $apiItem->user->username;
             $item['title'] = $apiItem->user->username . ' - ' . $apiItem->title;
             $item['timestamp'] = strtotime($apiItem->created_at);
-
-            $description = nl2br($apiItem->description);
+            $description = nl2br($apiItem->description ?? '');
 
             $item['content'] = <<<HTML
 				<p>{$description}</p>
@@ -116,22 +119,11 @@ HTML;
         return parent::getName();
     }
 
-    private function initClientIDCache()
-    {
-        if ($this->clientIDCache !== null) {
-            return;
-        }
-
-        $this->clientIDCache = RssBridge::getCache();
-        $this->clientIDCache->setScope('SoundCloudBridge');
-        $this->clientIDCache->setKey(['client_id']);
-    }
-
     private function getClientID()
     {
-        $this->initClientIDCache();
-
-        $clientID = $this->clientIDCache->loadData();
+        $this->cache->setScope('SoundCloudBridge');
+        $this->cache->setKey(['client_id']);
+        $clientID = $this->cache->loadData();
 
         if ($clientID == null) {
             return $this->refreshClientID();
@@ -142,8 +134,6 @@ HTML;
 
     private function refreshClientID()
     {
-        $this->initClientIDCache();
-
         $playerHTML = getContents($this->playerUrl);
 
         // Extract widget JS filenames from player page
@@ -161,7 +151,9 @@ HTML;
 
             if (preg_match($this->clientIdRegex, $widgetJS, $matches)) {
                 $clientID = $matches[1];
-                $this->clientIDCache->saveData($clientID);
+                $this->cache->setScope('SoundCloudBridge');
+                $this->cache->setKey(['client_id']);
+                $this->cache->saveData($clientID);
 
                 return $clientID;
             }
