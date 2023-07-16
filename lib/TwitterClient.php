@@ -11,8 +11,8 @@ class TwitterClient
     public function __construct(CacheInterface $cache)
     {
         $this->cache = $cache;
-        $this->authorization = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
-        $this->data = $cache->loadData() ?? [];
+        $this->authorization = 'AAAAAAAAAAAAAAAAAAAAAGHtAgAAAAAA%2Bx7ILXNILCqkSGIzy6faIHZ9s3Q%3DQy97w6SIrzE7lQwPJEYQBsArEE2fC25caFwRBvAGi456G09vGR';
+        $this->data = $this->cache->loadData() ?? [];
     }
 
     public function fetchUserTweets(string $screenName): \stdClass
@@ -95,6 +95,9 @@ class TwitterClient
         $response = getContents($url, $this->createHttpHeaders(), [CURLOPT_POST => true]);
         $guest_token = json_decode($response)->guest_token;
         $this->data['guest_token'] = $guest_token;
+
+        $this->cache->setScope('twitter');
+        $this->cache->setKey(['cache']);
         $this->cache->saveData($this->data);
         Logger::info("Fetch new guest token: $guest_token");
     }
@@ -119,6 +122,9 @@ class TwitterClient
         }
         $userInfo = $response->data->user;
         $this->data[$screenName] = $userInfo;
+
+        $this->cache->setScope('twitter');
+        $this->cache->setKey(['cache']);
         $this->cache->saveData($this->data);
         return $userInfo;
     }
