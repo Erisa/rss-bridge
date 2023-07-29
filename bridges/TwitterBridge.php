@@ -239,32 +239,8 @@ EOD
                 $screenName = trim($screenName);
                 $screenName = ltrim($screenName, '@');
 
-                //$data = $api->fetchUserTweets($screenName);
-                // https://syndication.twitter.com/srv/timeline-profile/screen-name/asmongold
-                try {
-                    $html = getContents('https://syndication.twitter.com/srv/timeline-profile/screen-name/' . $screenName);
-                } catch (HttpException $e) {
-                    if ($e->getCode() === 500) {
-                        return;
-                    }
-                    throw $e;
-                }
-                preg_match('#<script id="__NEXT_DATA__" type="application/json">(.*)</script><script nomodule="" #', $html, $m);
-                $data2 = json_decode($m[1]);
+                $data = $api->fetchUserTweets($screenName);
 
-                $entries = $data2->props->pageProps->timeline->entries;
-                $tweets2 = [];
-                foreach ($entries as $entry) {
-                    $tweet = $entry->content->tweet;
-                    $tweets2[] = $tweet;
-                    //$text = $tweet->text;
-                    //$full_text = $tweet->full_text;
-                }
-                $data = new \stdClass();
-                if (isset($tweets2[0])) {
-                    $data->user_info = $tweets2[0]->user;
-                }
-                $data->tweets = $tweets2;
                 break;
 
             case 'By keyword or hashtag':
