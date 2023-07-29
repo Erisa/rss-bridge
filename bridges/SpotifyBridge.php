@@ -7,45 +7,86 @@ class SpotifyBridge extends BridgeAbstract
     const DESCRIPTION = 'Fetches the latest items from one or more artists, playlists or podcasts';
     const MAINTAINER = 'Paroleen';
     const CACHE_TIMEOUT = 3600;
-    const PARAMETERS = [ [
-        'clientid' => [
-            'name' => 'Client ID',
-            'type' => 'text',
-            'required' => true
+    const PARAMETERS = [
+        'By Spotify URIs' => [
+            'clientid' => [
+                'name' => 'Client ID',
+                'type' => 'text',
+                'required' => true
+            ],
+            'clientsecret' => [
+                'name' => 'Client secret',
+                'type' => 'text',
+                'required' => true
+            ],
+            'country' => [
+                'name' => 'Country/Market',
+                'type' => 'text',
+                'required' => false,
+                'exampleValue' => 'US',
+                'defaultValue' => 'US'
+            ],
+            'limit' => [
+                'name' => 'Limit',
+                'type' => 'number',
+                'required' => false,
+                'exampleValue' => 10,
+                'defaultValue' => 10
+            ],
+            'spotifyuri' => [
+                'name' => 'Spotify URIs',
+                'type' => 'text',
+                'required' => true,
+                'exampleValue' => 'spotify:artist:4lianjyuR1tqf6oUX8kjrZ [,spotify:playlist:37i9dQZF1DXcBWIGoYBM5M,spotify:show:6ShFMYxeDNMo15COLObDvC]',
+            ],
+            'albumtype' => [
+                'name' => 'Album type',
+                'type' => 'text',
+                'required' => false,
+                'exampleValue' => 'album,single,appears_on,compilation',
+                'defaultValue' => 'album,single'
+            ]
         ],
-        'clientsecret' => [
-            'name' => 'Client secret',
-            'type' => 'text',
-            'required' => true
+        'By Spotify Search' => [
+            'clientid' => [
+                'name' => 'Client ID',
+                'type' => 'text',
+                'required' => true
+            ],
+            'clientsecret' => [
+                'name' => 'Client secret',
+                'type' => 'text',
+                'required' => true
+            ],
+            'market' => [
+                'name' => 'Market',
+                'type' => 'text',
+                'required' => false,
+                'exampleValue' => 'US',
+                'defaultValue' => 'US'
+            ],
+            'limit' => [
+                'name' => 'Limit',
+                'type' => 'number',
+                'required' => false,
+                'exampleValue' => 10,
+                'defaultValue' => 10
+            ],
+            'query' => [
+                'name' => 'Search query',
+                'type' => 'text',
+                'required' => true,
+                'exampleValue' => 'artist:The Beatles',
+            ],
+            'type' => [
+                'name' => 'Type',
+                'type' => 'text',
+                'required' => true,
+                'exampleValue' => 'album,episode',
+                'defaultValue' => 'album,episode'
+            ]
         ],
-        'country' => [
-            'name' => 'Country/Market',
-            'type' => 'text',
-            'required' => false,
-            'exampleValue' => 'US',
-            'defaultValue' => 'US'
-        ],
-        'limit' => [
-            'name' => 'Limit',
-            'type' => 'number',
-            'required' => false,
-            'exampleValue' => 10,
-            'defaultValue' => 10
-        ],
-        'spotifyuri' => [
-            'name' => 'Spotify URIs',
-            'type' => 'text',
-            'required' => true,
-            'exampleValue' => 'spotify:artist:4lianjyuR1tqf6oUX8kjrZ [,spotify:playlist:37i9dQZF1DXcBWIGoYBM5M,spotify:show:6ShFMYxeDNMo15COLObDvC]',
-        ],
-        'albumtype' => [
-            'name' => 'Album type',
-            'type' => 'text',
-            'required' => false,
-            'exampleValue' => 'album,single,appears_on,compilation',
-            'defaultValue' => 'album,single'
-        ]
-    ] ];
+    ];
 
     private $uri = '';
     private $name = '';
@@ -53,7 +94,14 @@ class SpotifyBridge extends BridgeAbstract
 
     public function collectData()
     {
-        $entries = $this->getAllEntries();
+        $this->fetchAccessToken();
+
+        if ($this->queriedContext === 'By Spotify URIs') {
+            $entries = $this->getEntriesFromURIs();
+        } else {
+            $entries = $this->getEntriesFromQuery();
+        }
+
         usort($entries, function ($entry1, $entry2) {
             return $this->getDate($entry2) <=> $this->getDate($entry1);
         });
@@ -77,7 +125,46 @@ class SpotifyBridge extends BridgeAbstract
         }
     }
 
-    private function getAllEntries()
+    private function getEntriesFromQuery()
+    {
+        $entries = [];
+
+        $types = [
+            'albums',
+            'episodes',
+        ];
+
+        $query = [
+            'q' => $this->getInput('query'),
+            'type' => $this->getInput('type'),
+            'market' => $this->getInput('market'),
+            'limit' => 50,
+        ];
+
+        $hasItems = true;
+        $offset = 0;
+
+        while ($hasItems && $offset < 1000) {
+            $hasItems = false;
+
+            $query['offset'] = $offset;
+            $json = getContents('https://api.spotify.com/v1/search?' . http_build_query($query), ['Authorization: Bearer ' . $this->token]);
+            $partial = Json::decode($json);
+
+            foreach ($types as $type) {
+                if (isset($partial[$type]['items'])) {
+                    $entries = array_merge($entries, $partial[$type]['items']);
+                    $hasItems = true;
+                }
+            }
+
+            $offset += 50;
+        }
+
+        return $entries;
+    }
+
+    private function getEntriesFromURIs()
     {
         $entries = [];
         $uris = explode(',', $this->getInput('spotifyuri'));
@@ -92,7 +179,7 @@ class SpotifyBridge extends BridgeAbstract
                 'show' => 'episode',
             ];
             if (!isset($types[$type])) {
-                throw new \Exception('Spotify URI not supported');
+                throw new \Exception(sprintf('Unsupported Spotify URI: %s', $uri));
             }
             $entry_type = $types[$type];
 
@@ -111,7 +198,8 @@ class SpotifyBridge extends BridgeAbstract
             $offset = 0;
             while (true) {
                 $query['offset'] = $offset;
-                $partial = $this->fetchContent($url . '?' . http_build_query($query));
+                $json = getContents($url . '?' . http_build_query($query), ['Authorization: Bearer ' . $this->token]);
+                $partial = Json::decode($json);
                 if (empty($partial['items'])) {
                     break;
                 }
@@ -188,57 +276,28 @@ class SpotifyBridge extends BridgeAbstract
         return DateTime::createFromFormat('Y-m-d', $date)->getTimestamp();
     }
 
-    private function getToken()
+    private function fetchAccessToken()
     {
         $cache = RssBridge::getCache();
-        $cache->setScope('SpotifyBridge');
-
         $cacheKey = sprintf('%s:%s', $this->getInput('clientid'), $this->getInput('clientsecret'));
+        $cache->setScope('SpotifyBridge');
         $cache->setKey([$cacheKey]);
-
-        $time = null;
-        if ($cache->getTime()) {
-            $time = (new DateTime())->getTimestamp() - $cache->getTime();
-        }
-
-        if (!$cache->getTime() || $time >= 3600) {
-            $this->fetchToken();
-            $cache->saveData($this->token);
+        $token = $cache->loadData(3600);
+        if ($token) {
+            $this->token = $token;
         } else {
-            $this->token = $cache->loadData();
+            $basicAuth = base64_encode(sprintf('%s:%s', $this->getInput('clientid'), $this->getInput('clientsecret')));
+            $json = getContents('https://accounts.spotify.com/api/token', [
+                "Authorization: Basic $basicAuth"
+            ], [
+                CURLOPT_POSTFIELDS => 'grant_type=client_credentials'
+            ]);
+            $data = Json::decode($json);
+            $this->token = $data['access_token'];
+            $cache->setScope('SpotifyBridge');
+            $cache->setKey([$cacheKey]);
+            $cache->saveData($this->token);
         }
-    }
-
-    private function fetchToken()
-    {
-        $curl = curl_init();
-
-        curl_setopt($curl, CURLOPT_URL, 'https://accounts.spotify.com/api/token');
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_POST, 1);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, 'grant_type=client_credentials');
-
-        $basic = sprintf('%s:%s', $this->getInput('clientid'), $this->getInput('clientsecret'));
-        curl_setopt($curl, CURLOPT_HTTPHEADER, ['Authorization: Basic ' . base64_encode($basic)]);
-
-        $json = curl_exec($curl);
-        $json = json_decode($json)->access_token;
-        curl_close($curl);
-
-        $this->token = $json;
-    }
-
-    private function fetchContent($url)
-    {
-        $this->getToken();
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $this->token]);
-        $json = curl_exec($curl);
-        $json = json_decode($json, true);
-        curl_close($curl);
-        return $json;
     }
 
     public function getURI()
@@ -273,7 +332,8 @@ class SpotifyBridge extends BridgeAbstract
                 $query['market'] = $this->getInput('country');
             }
 
-            $item = $this->fetchContent($uri . '?' . http_build_query($query));
+            $json = getContents($uri . '?' . http_build_query($query), ['Authorization: Bearer ' . $this->token]);
+            $item = Json::decode($json);
 
             $this->uri = $item['external_urls']['spotify'];
             $this->name = $item['name'] . ' - Spotify';

@@ -448,7 +448,9 @@ class VkBridge extends BridgeAbstract
 
     private function getTitle($content)
     {
-        preg_match('/^["\w\ \p{L}\(\)\?#«»-]+/mu', htmlspecialchars_decode($content), $result);
+        $content = explode('<br>', $content)[0];
+        $content = strip_tags($content);
+        preg_match('/^[:,"\w\ \p{L}\(\)\?#«»-]+/mu', htmlspecialchars_decode($content), $result);
         if (count($result) == 0) {
             return 'untitled';
         }
@@ -488,18 +490,22 @@ class VkBridge extends BridgeAbstract
 
     private function getContents()
     {
-        $header = ['Accept-language: en', 'Cookie: remixlang=3'];
+        $httpHeaders = [
+            'Accept-language: en',
+            'Cookie: remixlang=3',
+        ];
         $redirects = 0;
         $uri = $this->getURI();
 
         while ($redirects < 2) {
-            $response = getContents($uri, $header, [CURLOPT_FOLLOWLOCATION => false], true);
+            $response = getContents($uri, $httpHeaders, [CURLOPT_FOLLOWLOCATION => false], true);
 
             if (in_array($response['code'], [200, 304])) {
                 return $response['content'];
             }
 
-            $uri = urljoin(self::URI, $response['header']['location'][0]);
+            $headers = $response['headers'];
+            $uri = urljoin(self::URI, $headers['location'][0]);
 
             if (str_contains($uri, '/429.html')) {
                 returnServerError('VK responded "Too many requests"');
