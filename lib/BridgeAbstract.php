@@ -58,8 +58,6 @@ abstract class BridgeAbstract implements BridgeInterface
 
     /**
      * Configuration for the bridge
-     *
-     * Use {@see BridgeAbstract::getConfiguration()} to read this parameter
      */
     const CONFIGURATION = [];
 
@@ -113,6 +111,11 @@ abstract class BridgeAbstract implements BridgeInterface
      */
     protected $queriedContext = '';
 
+    /**
+     * Holds the list of bridge-specific configurations from config.ini.php, used by the bridge.
+     */
+    private array $configuration = [];
+
     /** {@inheritdoc} */
     public function getItems()
     {
@@ -144,6 +147,10 @@ abstract class BridgeAbstract implements BridgeInterface
         }
 
         foreach ($contexts as $context) {
+            if (!isset(static::PARAMETERS[$context])) {
+                // unknown context provided by client, throw exception here? or continue?
+            }
+
             foreach (static::PARAMETERS[$context] as $name => $properties) {
                 if (isset($this->inputs[$context][$name]['value'])) {
                     continue;
@@ -359,12 +366,6 @@ abstract class BridgeAbstract implements BridgeInterface
     public function getIcon()
     {
         return static::URI . '/favicon.ico';
-    }
-
-    /** {@inheritdoc} */
-    public function getConfiguration()
-    {
-        return static::CONFIGURATION;
     }
 
     /** {@inheritdoc} */
