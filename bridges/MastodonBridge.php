@@ -100,7 +100,11 @@ class MastodonBridge extends BridgeAbstract
                 // We fetch the boosted content.
                 try {
                     $rtContent = $this->fetchAP($content['object']);
-                    $rtUser = $this->loadCacheValue($rtContent['attributedTo'], 86400);
+                    if (!$rtContent) {
+                        // Sometimes fetchAP returns null. Someone should figure out why. json_decode failure?
+                        break;
+                    }
+                    $rtUser = $this->loadCacheValue($rtContent['attributedTo']);
                     if (!isset($rtUser)) {
                         // We fetch the author, since we cannot always assume the format of the URL.
                         $user = $this->fetchAP($rtContent['attributedTo']);
@@ -277,6 +281,10 @@ class MastodonBridge extends BridgeAbstract
                 array_push($headers, $sig);
             }
         }
-        return json_decode(getContents($url, $headers), true);
+        try {
+            return Json::decode(getContents($url, $headers));
+        } catch (\JsonException $e) {
+            return null;
+        }
     }
 }
