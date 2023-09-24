@@ -6,6 +6,21 @@ class HttpException extends \Exception
 
 final class CloudFlareException extends HttpException
 {
+    public static function isCloudFlareResponse(Response $response): bool
+    {
+        $cloudflareTitles = [
+            '<title>Just a moment...',
+            '<title>Please Wait...',
+            '<title>Attention Required!',
+            '<title>Security | Glassdoor',
+        ];
+        foreach ($cloudflareTitles as $cloudflareTitle) {
+            if (str_contains($response->getBody(), $cloudflareTitle)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 interface HttpClient
@@ -100,8 +115,8 @@ final class CurlHttpClient implements HttpClient
         $attempts = 0;
         while (true) {
             $attempts++;
-            $data = curl_exec($ch);
-            if ($data !== false) {
+            $body = curl_exec($ch);
+            if ($body !== false) {
                 // The network call was successful, so break out of the loop
                 break;
             }
@@ -119,9 +134,9 @@ final class CurlHttpClient implements HttpClient
             }
         }
 
-        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $statusCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
-        return new Response($data, $statusCode, $responseHeaders);
+        return new Response($body, $statusCode, $responseHeaders);
     }
 }
 

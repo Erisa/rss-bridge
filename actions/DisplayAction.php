@@ -3,13 +3,22 @@
 class DisplayAction implements ActionInterface
 {
     private CacheInterface $cache;
+    private Logger $logger;
+
+    public function __construct()
+    {
+        $this->cache = RssBridge::getCache();
+        $this->logger = RssBridge::getLogger();
+    }
 
     public function execute(array $request)
     {
         if (Configuration::getConfig('system', 'enable_maintenance_mode')) {
-            return new Response('503 Service Unavailable', 503);
+            return new Response(render(__DIR__ . '/../templates/error.html.php', [
+                'title'     => '503 Service Unavailable',
+                'message'   => 'RSS-Bridge is down for maintenance.',
+            ]), 503);
         }
-        $this->cache = RssBridge::getCache();
         $cacheKey = 'http_' . json_encode($request);
         /** @var Response $cachedResponse */
         $cachedResponse = $this->cache->get($cacheKey);
@@ -30,19 +39,19 @@ class DisplayAction implements ActionInterface
 
         $bridgeName = $request['bridge'] ?? null;
         if (!$bridgeName) {
-            return new Response('Missing bridge param', 400);
+            return new Response(render(__DIR__ . '/../templates/error.html.php', ['message' => 'Missing bridge parameter']), 400);
         }
         $bridgeFactory = new BridgeFactory();
         $bridgeClassName = $bridgeFactory->createBridgeClassName($bridgeName);
         if (!$bridgeClassName) {
-            return new Response('Bridge not found', 404);
+            return new Response(render(__DIR__ . '/../templates/error.html.php', ['message' => 'Bridge not found']), 404);
         }
         $format = $request['format'] ?? null;
         if (!$format) {
-            return new Response('You must specify a format!', 400);
+            return new Response(render(__DIR__ . '/../templates/error.html.php', ['message' => 'You must specify a format']), 400);
         }
         if (!$bridgeFactory->isEnabled($bridgeClassName)) {
-            return new Response('This bridge is not whitelisted', 400);
+            return new Response(render(__DIR__ . '/../templates/error.html.php', ['message' => 'This bridge is not whitelisted']), 400);
         }
 
         $noproxy = $request['_noproxy'] ?? null;
@@ -84,7 +93,7 @@ class DisplayAction implements ActionInterface
         return $response;
     }
 
-    private function createResponse(array $request, BridgeInterface $bridge, FormatInterface $format)
+    private function createResponse(array $request, BridgeAbstract $bridge, FormatInterface $format)
     {
         $items = [];
         $infos = [];
@@ -110,20 +119,20 @@ class DisplayAction implements ActionInterface
                 'icon' => $bridge->getIcon()
             ];
         } catch (\Exception $e) {
-            $errorOutput = Configuration::getConfig('error', 'output');
-            $reportLimit = Configuration::getConfig('error', 'report_limit');
             if ($e instanceof HttpException) {
                 // Reproduce (and log) these responses regardless of error output and report limit
                 if ($e->getCode() === 429) {
-                    Logger::info(sprintf('Exception in DisplayAction(%s): %s', $bridge->getShortName(), create_sane_exception_message($e)));
-                    return new Response('429 Too Many Requests', 429);
+                    $this->logger->info(sprintf('Exception in DisplayAction(%s): %s', $bridge->getShortName(), create_sane_exception_message($e)));
+                    return new Response(render(__DIR__ . '/../templates/exception.html.php', ['e' => $e]), 429);
                 }
                 if ($e->getCode() === 503) {
-                    Logger::info(sprintf('Exception in DisplayAction(%s): %s', $bridge->getShortName(), create_sane_exception_message($e)));
-                    return new Response('503 Service Unavailable', 503);
+                    $this->logger->info(sprintf('Exception in DisplayAction(%s): %s', $bridge->getShortName(), create_sane_exception_message($e)));
+                    return new Response(render(__DIR__ . '/../templates/exception.html.php', ['e' => $e]), 503);
                 }
             }
-            Logger::error(sprintf('Exception in DisplayAction(%s)', $bridge->getShortName()), ['e' => $e]);
+            $this->logger->error(sprintf('Exception in DisplayAction(%s)', $bridge->getShortName()), ['e' => $e]);
+            $errorOutput = Configuration::getConfig('error', 'output');
+            $reportLimit = Configuration::getConfig('error', 'report_limit');
             $errorCount = 1;
             if ($reportLimit > 1) {
                 $errorCount = $this->logBridgeError($bridge->getName(), $e->getCode());
@@ -134,7 +143,7 @@ class DisplayAction implements ActionInterface
                     // Render the exception as a feed item
                     $items[] = $this->createFeedItemFromException($e, $bridge);
                 } elseif ($errorOutput === 'http') {
-                    return new Response(render(__DIR__ . '/../templates/error.html.php', ['e' => $e]), 500);
+                    return new Response(render(__DIR__ . '/../templates/exception.html.php', ['e' => $e]), 500);
                 } elseif ($errorOutput === 'none') {
                     // Do nothing (produces an empty feed)
                 }
@@ -152,7 +161,7 @@ class DisplayAction implements ActionInterface
         return new Response($format->stringify(), 200, $headers);
     }
 
-    private function createFeedItemFromException($e, BridgeInterface $bridge): FeedItem
+    private function createFeedItemFromException($e, BridgeAbstract $bridge): FeedItem
     {
         $item = new FeedItem();
 
@@ -167,7 +176,7 @@ class DisplayAction implements ActionInterface
         $item->setUid($bridge->getName() . '_' . $uniqueIdentifier);
 
         $content = render_template(__DIR__ . '/../templates/bridge-error.html.php', [
-            'error' => render_template(__DIR__ . '/../templates/error.html.php', ['e' => $e]),
+            'error' => render_template(__DIR__ . '/../templates/exception.html.php', ['e' => $e]),
             'searchUrl' => self::createGithubSearchUrl($bridge),
             'issueUrl' => self::createGithubIssueUrl($bridge, $e, create_sane_exception_message($e)),
             'maintainer' => $bridge->getMaintainer(),

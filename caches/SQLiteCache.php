@@ -8,11 +8,15 @@ declare(strict_types=1);
  */
 class SQLiteCache implements CacheInterface
 {
-    private \SQLite3 $db;
+    private Logger $logger;
     private array $config;
+    private \SQLite3 $db;
 
-    public function __construct(array $config)
-    {
+    public function __construct(
+        Logger $logger,
+        array $config
+    ) {
+        $this->logger = $logger;
         $default = [
             'file'          => null,
             'timeout'       => 5000,
@@ -33,10 +37,14 @@ class SQLiteCache implements CacheInterface
             $this->db = new \SQLite3($config['file']);
             $this->db->enableExceptions(true);
             $this->db->exec("CREATE TABLE storage ('key' BLOB PRIMARY KEY, 'value' BLOB, 'updated' INTEGER)");
+            // Consider uncommenting this to add an index on expiration
+            //$this->db->exec('CREATE INDEX idx_storage_updated ON storage (updated)');
         }
         $this->db->busyTimeout($config['timeout']);
+
         // https://www.sqlite.org/pragma.html#pragma_journal_mode
         $this->db->exec('PRAGMA journal_mode = wal');
+
         // https://www.sqlite.org/pragma.html#pragma_synchronous
         $this->db->exec('PRAGMA synchronous = NORMAL');
     }
@@ -59,7 +67,7 @@ class SQLiteCache implements CacheInterface
             $blob = $row['value'];
             $value = unserialize($blob);
             if ($value === false) {
-                Logger::error(sprintf("Failed to unserialize: '%s'", mb_substr($blob, 0, 100)));
+                $this->logger->error(sprintf("Failed to unserialize: '%s'", mb_substr($blob, 0, 100)));
                 // delete?
                 return $default;
             }
@@ -68,6 +76,7 @@ class SQLiteCache implements CacheInterface
         // delete?
         return $default;
     }
+
     public function set(string $key, $value, int $ttl = null): void
     {
         $cacheKey = $this->createCacheKey($key);

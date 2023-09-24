@@ -2,8 +2,9 @@
 
 final class RssBridge
 {
-    private static HttpClient $httpClient;
     private static CacheInterface $cache;
+    private static Logger $logger;
+    private static HttpClient $httpClient;
 
     public function __construct()
     {
@@ -15,10 +16,13 @@ final class RssBridge
         }
         Configuration::loadConfiguration($customConfig, getenv());
 
+        // Consider: ini_set('error_reporting', E_ALL & ~E_DEPRECATED);
+        date_default_timezone_set(Configuration::getConfig('system', 'timezone'));
+
         set_exception_handler(function (\Throwable $e) {
-            Logger::error('Uncaught Exception', ['e' => $e]);
+            self::$logger->error('Uncaught Exception', ['e' => $e]);
             http_response_code(500);
-            print render(__DIR__ . '/../templates/error.html.php', ['e' => $e]);
+            print render(__DIR__ . '/../templates/exception.html.php', ['e' => $e]);
             exit(1);
         });
 
@@ -26,13 +30,15 @@ final class RssBridge
             if ((error_reporting() & $code) === 0) {
                 return false;
             }
+            // In the future, uncomment this:
+            //throw new \ErrorException($message, 0, $code, $file, $line);
             $text = sprintf(
                 '%s at %s line %s',
                 sanitize_root($message),
                 sanitize_root($file),
                 $line
             );
-            Logger::warning($text);
+            self::$logger->warning($text);
             if (Debug::isEnabled()) {
                 print sprintf("<pre>%s</pre>\n", e($text));
             }
@@ -49,29 +55,27 @@ final class RssBridge
                     sanitize_root($error['file']),
                     $error['line']
                 );
-                Logger::error($message);
+                self::$logger->error($message);
                 if (Debug::isEnabled()) {
-                    // todo: extract to log handler
                     print sprintf("<pre>%s</pre>\n", e($message));
                 }
             }
         });
 
-        // Consider: ini_set('error_reporting', E_ALL & ~E_DEPRECATED);
-        date_default_timezone_set(Configuration::getConfig('system', 'timezone'));
+        self::$logger = new SimpleLogger('rssbridge');
+        if (Debug::isEnabled()) {
+            self::$logger->addHandler(new StreamHandler(Logger::DEBUG));
+        } else {
+            self::$logger->addHandler(new StreamHandler(Logger::INFO));
+        }
 
         self::$httpClient = new CurlHttpClient();
 
-        $cacheFactory = new CacheFactory();
+        $cacheFactory = new CacheFactory(self::$logger);
         if (Debug::isEnabled()) {
             self::$cache = $cacheFactory->create('array');
         } else {
             self::$cache = $cacheFactory->create();
-        }
-
-        if (Configuration::getConfig('authentication', 'enable')) {
-            $authenticationMiddleware = new AuthenticationMiddleware();
-            $authenticationMiddleware();
         }
     }
 
@@ -81,6 +85,10 @@ final class RssBridge
             parse_str(implode('&', array_slice($argv, 1)), $cliArgs);
             $request = $cliArgs;
         } else {
+            if (Configuration::getConfig('authentication', 'enable')) {
+                $authenticationMiddleware = new AuthenticationMiddleware();
+                $authenticationMiddleware();
+            }
             $request = array_merge($_GET, $_POST);
         }
 
@@ -109,25 +117,24 @@ final class RssBridge
                 $response->send();
             }
         } catch (\Throwable $e) {
-            Logger::error('Exception in RssBridge::main()', ['e' => $e]);
+            self::$logger->error('Exception in RssBridge::main()', ['e' => $e]);
             http_response_code(500);
-            print render(__DIR__ . '/../templates/error.html.php', ['e' => $e]);
+            print render(__DIR__ . '/../templates/exception.html.php', ['e' => $e]);
         }
+    }
+
+    public static function getCache(): CacheInterface
+    {
+        return self::$cache;
+    }
+
+    public static function getLogger(): Logger
+    {
+        return self::$logger;
     }
 
     public static function getHttpClient(): HttpClient
     {
         return self::$httpClient;
-    }
-
-    public static function getCache(): CacheInterface
-    {
-        return self::$cache ?? new NullCache();
-    }
-
-    public function clearCache()
-    {
-        $cache = self::getCache();
-        $cache->clear();
     }
 }

@@ -3,7 +3,6 @@
 namespace RssBridge\Tests\Bridges;
 
 use BridgeAbstract;
-use BridgeInterface;
 use FeedExpander;
 use PHPUnit\Framework\TestCase;
 
@@ -29,7 +28,7 @@ class BridgeImplementationTest extends TestCase
     public function testClassType($path)
     {
         $this->setBridge($path);
-        $this->assertInstanceOf(BridgeInterface::class, $this->obj);
+        $this->assertInstanceOf(BridgeAbstract::class, $this->obj);
     }
 
     /**
@@ -232,7 +231,10 @@ class BridgeImplementationTest extends TestCase
     {
         $this->class = '\\' . basename($path, '.php');
         $this->assertTrue(class_exists($this->class), 'class ' . $this->class . ' doesn\'t exist');
-        $this->obj = new $this->class();
+        $this->obj = new $this->class(
+            new \NullCache(),
+            new \NullLogger()
+        );
     }
 
     private function checkUrl($url)
