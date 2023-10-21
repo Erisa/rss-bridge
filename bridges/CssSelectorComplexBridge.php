@@ -224,7 +224,7 @@ class CssSelectorComplexBridge extends BridgeAbstract
     {
         if (!empty($url_pattern)) {
             $url_pattern = '/' . str_replace('/', '\/', $url_pattern) . '/';
-            $links = array_filter($links, function ($url) {
+            $links = array_filter($links, function ($url) use ($url_pattern) {
                 return preg_match($url_pattern, $url) === 1;
             });
         }
@@ -359,7 +359,7 @@ class CssSelectorComplexBridge extends BridgeAbstract
         $article_content = $entry_html->find($content_selector, 0);
 
         if (is_null($article_content)) {
-            returnClientError('Could not article content at URL: ' . $entry_url);
+            returnClientError('Could not get article content at URL: ' . $entry_url);
         }
 
         $article_content = defaultLinkTo($article_content, $entry_url);
@@ -415,10 +415,14 @@ class CssSelectorComplexBridge extends BridgeAbstract
     ) {
         $article_content = convertLazyLoading($entry_html);
 
+        $article_title = '';
         if (is_null($title_selector)) {
             $article_title = $title_default;
         } else {
-            $article_title = trim($entry_html->find($title_selector, 0)->innertext);
+            $titleElement = $entry_html->find($title_selector, 0);
+            if ($titleElement) {
+                $article_title = trim($titleElement->innertext);
+            }
         }
 
         $author = null;

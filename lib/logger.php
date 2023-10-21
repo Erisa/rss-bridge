@@ -148,6 +148,10 @@ final class StreamHandler
             $context
         );
         error_log($text);
+        if ($record['level'] < Logger::ERROR && Debug::isEnabled()) {
+            // Not a good idea to print here because http headers might not have been sent
+            print sprintf("<pre>%s</pre>\n", e($text));
+        }
         //$bytes = file_put_contents('/tmp/rss-bridge.log', $text, FILE_APPEND | LOCK_EX);
     }
 }

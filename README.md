@@ -154,6 +154,7 @@ Browse http://localhost:3000/
 [![Deploy on Scalingo](https://cdn.scalingo.com/deploy/button.svg)](https://my.scalingo.com/deploy?source=https://github.com/sebsauvage/rss-bridge)
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 [![Deploy to Cloudron](https://cloudron.io/img/button.svg)](https://www.cloudron.io/store/com.rssbridgeapp.cloudronapp.html)
+[![Run on PikaPods](https://www.pikapods.com/static/run-button.svg)](https://www.pikapods.com/pods?run=rssbridge)
 
 The Heroku quick deploy currently does not work. It might possibly work if you fork this repo and
 modify the `repository` in `scalingo.json`. See https://github.com/RSS-Bridge/rss-bridge/issues/2688
@@ -248,6 +249,8 @@ Modify `report_limit` so that an error must occur 3 times before it is reported.
     ; Defines how often an error must occur before it is reported to the user
     report_limit = 3
 
+The report count is reset to 0 each day.
+
 ### How to password-protect the instance
 
 HTTP basic access authentication:
@@ -266,7 +269,7 @@ https://alice:cat@rss-bridge.org/bridge01/?action=display&bridge=FabriceBellardB
 
 ### How to create a new output format
 
-[Create a new format](https://rss-bridge.github.io/rss-bridge/Format_API/index.html).
+See `formats/PlaintextFormat.php` for an example.
 
 ### How to run unit tests and linter
 

@@ -73,10 +73,17 @@ class FilterBridge extends FeedExpander
         ],
     ]];
 
-    protected function parseItem($newItem)
+    public function collectData()
     {
-        $item = parent::parseItem($newItem);
+        $url = $this->getInput('url');
+        if (!Url::validate($url)) {
+            returnClientError('The url parameter must either refer to http or https protocol.');
+        }
+        $this->collectExpandableDatas($this->getURI());
+    }
 
+    protected function parseItem(array $item)
+    {
         // Generate title from first 50 characters of content?
         if ($this->getInput('title_from_content') && array_key_exists('content', $item)) {
             $content = str_get_html($item['content']);
@@ -157,14 +164,5 @@ class FilterBridge extends FeedExpander
         }
 
         return $url;
-    }
-
-    public function collectData()
-    {
-        if ($this->getInput('url') && substr($this->getInput('url'), 0, 4) !== 'http') {
-            // just in case someone finds a way to access local files by playing with the url
-            returnClientError('The url parameter must either refer to http or https protocol.');
-        }
-        $this->collectExpandableDatas($this->getURI());
     }
 }

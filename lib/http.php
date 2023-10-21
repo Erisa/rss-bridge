@@ -13,6 +13,7 @@ final class CloudFlareException extends HttpException
             '<title>Please Wait...',
             '<title>Attention Required!',
             '<title>Security | Glassdoor',
+            '<title>Access denied</title>', // cf as seen on patreon.com
         ];
         foreach ($cloudflareTitles as $cloudflareTitle) {
             if (str_contains($response->getBody(), $cloudflareTitle)) {
@@ -211,12 +212,12 @@ final class Response
         }
     }
 
-    public function getBody()
+    public function getBody(): string
     {
         return $this->body;
     }
 
-    public function getCode()
+    public function getCode(): int
     {
         return $this->code;
     }
@@ -226,7 +227,7 @@ final class Response
         return self::STATUS_CODES[$this->code] ?? '';
     }
 
-    public function getHeaders()
+    public function getHeaders(): array
     {
         return $this->headers;
     }

@@ -1,25 +1,5 @@
 <?php
 
-/**
- * This file is part of RSS-Bridge, a PHP project capable of generating RSS and
- * Atom feeds for websites that don't have one.
- *
- * For the full license information, please view the UNLICENSE file distributed
- * with this source code.
- *
- * @package Core
- * @license http://unlicense.org/ UNLICENSE
- * @link    https://github.com/rss-bridge/rss-bridge
- */
-
-/**
- * A generator class for a single bridge card on the home page of RSS-Bridge.
- *
- * This class generates the HTML content for a single bridge card for the home
- * page of RSS-Bridge.
- *
- * @todo Return error if a caller creates an object of this class.
- */
 final class BridgeCard
 {
     /**
@@ -197,9 +177,18 @@ This bridge is not fetching its content through a secure connection</div>';
                     $form .= self::getCheckboxInput($inputEntry, $idArg, $id);
                 }
 
+                $infoText = [];
+                $infoTextScript = '';
                 if (isset($inputEntry['title'])) {
-                    $title_filtered = filter_var($inputEntry['title'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-                    $form .= '<i class="info" title="' . $title_filtered . '">i</i>';
+                    $infoText[] = filter_var($inputEntry['title'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+                }
+                if ($inputEntry['exampleValue'] !== '') {
+                    $infoText[] = "Example (right click to use):\n" . filter_var($inputEntry['exampleValue'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+                    $infoTextScript = 'rssbridge_use_placeholder_value(this);';
+                }
+
+                if (count($infoText) > 0) {
+                    $form .= '<i class="info" data-for="' . $idArg . '" title="' . implode("\n\n", $infoText) . '" oncontextmenu="' . $infoTextScript . 'return false">i</i>';
                 } else {
                     $form .= '<i class="no-info"></i>';
                 }

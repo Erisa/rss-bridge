@@ -36,15 +36,12 @@ class ImgsedBridge extends BridgeAbstract
             ],
         ]
     ];
-
-    public function getURI()
-    {
-        if (!is_null($this->getInput('u'))) {
-            return urljoin(self::URI, '/' . $this->getInput('u') . '/');
-        }
-
-        return parent::getURI();
-    }
+    const TEST_DETECT_PARAMETERS = [
+        'https://www.instagram.com/instagram/' => ['context' => 'Username', 'u' => 'instagram', 'post' => 'on', 'story' => 'on', 'tagged' => 'on'],
+        'https://instagram.com/instagram/' => ['context' => 'Username', 'u' => 'instagram', 'post' => 'on', 'story' => 'on', 'tagged' => 'on'],
+        'https://imgsed.com/instagram/' => ['context' => 'Username', 'u' => 'instagram', 'post' => 'on', 'story' => 'on', 'tagged' => 'on'],
+        'https://www.imgsed.com/instagram/' => ['context' => 'Username', 'u' => 'instagram', 'post' => 'on', 'story' => 'on', 'tagged' => 'on'],
+    ];
 
     public function collectData()
     {
@@ -93,9 +90,6 @@ class ImgsedBridge extends BridgeAbstract
 
             $isMoreContent = (bool) $post->find('svg', 0);
             $moreContentNote = $isMoreContent ? '<p><i>(multiple images and/or videos)</i></p>' : '';
-
-
-
 
             $this->items[] = [
                 'uri'        => $url,
@@ -208,18 +202,35 @@ HTML,
         }
     }
 
-    // Parse date, and transform the date into a timetamp, even in a case of a relative date
     private function parseDate($content)
     {
+        // Parse date, and transform the date into a timetamp, even in a case of a relative date
         $date = date_create();
-        $dateString = str_replace(' ago', '', $content);
+
+        // Content trimmed to be sure that the "article" is at the beginning of the string and remove "ago" to make it a valid PHP date interval
+        $dateString = trim(str_replace(' ago', '', $content));
+
+        // Replace the article "an" or "a" by the number "1" to be a valid PHP date interval
+        $dateString = preg_replace('/^((an|a) )/m', '1 ', $dateString);
+
         $relativeDate = date_interval_create_from_date_string($dateString);
         if ($relativeDate) {
             date_sub($date, $relativeDate);
+            // As the relative interval has the precision of a day for date older than 24 hours, we can remove the hour of the date, as it is not relevant
+            date_time_set($date, 0, 0, 0, 0);
         } else {
             $this->logger->info(sprintf('Unable to parse date string: %s', $dateString));
         }
         return date_format($date, 'r');
+    }
+
+    public function getURI()
+    {
+        if (!is_null($this->getInput('u'))) {
+            return urljoin(self::URI, '/' . $this->getInput('u') . '/');
+        }
+
+        return parent::getURI();
     }
 
     private function convertURLToInstagram($url)
@@ -244,7 +255,13 @@ HTML,
             if ($this->getInput('tagged')) {
                 $types[] = 'Tags';
             }
-            $typesText = $types[0];
+
+            // If no content type is selected, this bridge does nothing, so we return an error
+            if (count($types) == 0) {
+                returnClientError('You must select at least one of the content type : Post, Stories or Tags !');
+            }
+            $typesText = $types[0] ?? '';
+
             if (count($types) > 1) {
                 for ($i = 1; $i < count($types) - 1; $i++) {
                     $typesText .= ', ' . $types[$i];
@@ -262,10 +279,9 @@ HTML,
         $params = [
             'post' => 'on',
             'story' => 'on',
-            'tagged' => 'on'
+            'tagged' => 'on',
         ];
-        $regex = '/^http(s|):\/\/((www\.|)(instagram.com)\/([a-zA-Z0-9_\.]{1,30})\/(reels\/|tagged\/|)
-|(www\.|)(imgsed.com)\/(stories\/|tagged\/|)([a-zA-Z0-9_\.]{1,30})\/)/';
+        $regex = '/^http(s|):\/\/((www\.|)(instagram.com)\/([a-zA-Z0-9_\.]{1,30})(\/reels\/|\/tagged\/|\/|)|(www\.|)(imgsed.com)\/(stories\/|tagged\/|)([a-zA-Z0-9_\.]{1,30})\/)/';
         if (preg_match($regex, $url, $matches) > 0) {
             $params['context'] = 'Username';
             // Extract detected domain using the regex
@@ -273,7 +289,7 @@ HTML,
             if ($domain == 'imgsed.com') {
                 $params['u'] = $matches[10];
                 return $params;
-            } else if ($domain == 'instagram.com') {
+            } elseif ($domain == 'instagram.com') {
                 $params['u'] = $matches[5];
                 return $params;
             } else {
