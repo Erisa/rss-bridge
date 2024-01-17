@@ -44,4 +44,3 @@ jobs:
             ${{ steps.docker_meta.outputs.bake-file }}
           targets: image-all
           push: true
-          builder: builder
